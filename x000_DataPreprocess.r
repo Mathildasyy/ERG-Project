@@ -30,7 +30,7 @@ bsplot <- function(index, title){
   points(x, pr, col = "red", pch = 10, cex = 0.5)
 }
 ## Set 2 by 2 canvas
-par(mfrow = c(2,2))
+par(mfrow = c(2,2), mar = c(2,2,2,2))
 
 # Then, we plot the numeric and non-numeric variables in different ways
 feature.graphs <- function(subset.index){
@@ -45,12 +45,15 @@ for (i in subset.index){
 
 
 # Before we start automatic generation, we have to manually re-classify the feature type
-## Delete the hashtag before you name, and input a vector of the actual types
-##sy<- c()
+## Delete the hashtags before you name, and input a vector of the actual types
+sy<- c('character','character','integer','integer','character',
+       'character','character','character','character','character',
+       'character','character','character','character','character',
+       'character',"integer","integer","integer","integer")
 ##hy<- c()
 ##hsq<- c()
 ##zqf<- c()
-##feature.class[1:20] = sy
+feature.class[1:20] = sy
 ##feature.class[21:40] = hy
 ##feature.class[41:60] = hsq
 ##feature.class[61:79] = zqf
