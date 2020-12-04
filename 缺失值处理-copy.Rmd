@@ -1,0 +1,232 @@
+---
+title: "缺失值处理"
+author: "Zhao Qianfan"
+date: "11/24/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(mice)
+library(caret)
+library(RANN)
+train <- read.csv('train.csv')[,-1]
+test <- read.csv('test.csv')
+```
+
+```{r}
+# 统计各个predictor中NA出现的次数
+colSums(is.na(train))
+```
+以上是对各column内NA出现次数的统计，下面开始具体讨论各个predictor中的NA是属于数据缺失还是本身就有具体的含义。
+
+1）属于数据缺失（4个predictors）
+LotFrontage: 259个缺失 是numeric variable, 确实缺失
+MasVnrType: 8个缺失 有864个none，有8个NA，这8个NA是属于缺失的
+MasVnrArea: 8 是numeric variable, 确实有8个缺失，和MasVnrType的8个缺失对应
+Electrical: 1 属于缺失
+
+2）NA本来就有具体的含义（15个predictors）
+Alley: 1369个缺失 NA本来就代表没有alley，所以不属于缺失
+BsmtQual: 37 NA代表没有basement，所以不属于缺失
+BsmtCond: 37 同上，不属于缺失
+BsmtExposure: 38 NA代表没有basement，所以不属于缺失；不过要比上面两个variable多了一个NA，可以忽略不计
+BsmtFinType1: 37 同上，不代表缺失
+BsmtFinType2: 38 同上，不代表缺失
+FireplaceQu: 690 NA代表没有fireplace，所以不属于缺失 (所以fireplace中有690个0)
+GarageType: 81 NA代表没有garage, 所以不属于缺失 (所以GarageCars和GarageArea这两个衡量面积的指标有81个0)
+GarageFinish: 81 同上
+GarageYrBlt: 81 同上
+GarageQual: 81 同上
+GarageCond: 81 同上
+PoolQC: 1453 NA代表no pool，所以不属于缺失
+Fence: 1179 NA代表no fence，所以不属于缺失
+MiscFeature: 1406 NA代表没有Miscellaneous feature，所以不属于缺失
+
+```{r}
+# 对于NA本来就有具体含义的15个predictor来说，不需要把NA当做missing value来做imputation. 
+# 参考“How I made top 0.3% on a Kaggle competition”这篇文章的处理方法，为了不把NA误认为是missing value，下面把这15个predictor中的"NA"改成"None". 其中，GarageYrBlt这一个指标暂且把它当做numeric处理，所以改成了0. 后续也可以把这个指标改成character、把NA改成None. 
+
+train$Alley[is.na(train$Alley)] <- "None"
+train$BsmtQual[is.na(train$BsmtQual)] <- "None"
+train$BsmtCond[is.na(train$BsmtCond)] <- "None"
+train$BsmtExposure[is.na(train$BsmtExposure)] <- "None"
+train$BsmtFinType1[is.na(train$BsmtFinType1)] <- "None"
+train$BsmtFinType2[is.na(train$BsmtFinType2)] <- "None"
+train$FireplaceQu[is.na(train$FireplaceQu)] <- "None"
+train$GarageType[is.na(train$GarageType)] <- "None"
+train$GarageFinish[is.na(train$GarageFinish)] <- "None"
+train$GarageQual[is.na(train$GarageQual)] <- "None"
+train$GarageCond[is.na(train$GarageCond)] <- "None"
+train$PoolQC[is.na(train$PoolQC)] <- "None"
+train$Fence[is.na(train$Fence)] <- "None"
+train$MiscFeature[is.na(train$MiscFeature)] <- "None"
+
+train$GarageYrBlt[is.na(train$GarageYrBlt)] <- 0
+```
+
+```{r}
+# 下面对LotFrontage, MasVnrType, MasVnrArea和Electrical这四个真正有缺失的predictor进行处理
+
+# LotFrontage, MasVnrType, MasVnrArea和Electrical的缺失个数分别为259，8，8，1, 占比分别为17.7%, 0.5%, 0.5%和0.07%. 通常缺失值超过5%的predictor可以选择直接舍弃。不过参考“How I made top 0.3% on a Kaggle competition”这篇文章，还是把所有predictor都保留。
+# 对于categorical missing value (MasVnrType, Electrical), 选择用mode填补；
+# 对于numerical missing value (LotFrontage, MasVnrArea), 选择用KNN imputation. 
+
+# apply mode imputation
+# first create function to identify the mode of MasVnrType and Electrical
+my_mode <- function(x) {                                    
+  unique_x <- unique(x)
+  mode <- unique_x[which.max(tabulate(match(x, unique_x)))]
+  mode
+}
+```
+```{r}
+my_mode(train$MasVnrType)
+my_mode(train$Electrical)
+```
+```{r}
+# the mode of MasVnrType is "None", while the mode of Electrical is "SBrkr". Impute. 
+train$MasVnrType[is.na(train$MasVnrType)] <- "None"
+train$Electrical[is.na(train$Electrical)] <- "SBrkr"
+```
+
+```{r}
+# use preProcess function in caret package to perform knn imputation on missing values
+train_model <- preProcess(train, "knnImpute", k=38) # set k to equal to the square root of number of variables 
+train <- predict(train_model, train) # Using this approach will automatically trigger preProcess to center and scale the data, regardless of what is in the method argument.
+```
+
+```{r}
+# Check: 再次统计各个predictor中NA出现的次数
+colSums(is.na(train))
+```
+
+```{r}
+#for (i in 1:dim(train)[2]){
+#  if (class(train[,i]) == 'character') {
+#    Type_peau<-as.factor(train[,i])
+#    train[,i] = unclass(Type_peau)
+#  }
+#}
+
+#train_var = train[,-ncol(train)]
+#descrCor = cor(train_var)
+#summary(descrCor[upper.tri(descrCor)])
+#highlyCorDescr <- findCorrelation(descrCor, cutoff = .75)
+#train_var <- train_var[,-highlyCorDescr]
+#descrCor2 <- cor(train_dummy)
+#summary(descrCor2[upper.tri(descrCor2)])
+```
+
+```{r}
+# Zero- and Near Zero-Variance Predictors
+dim(train) # dim: 1460   80
+nzv <- nearZeroVar(train, saveMetrics = T)
+nzv[nzv$nzv,][1:10,]
+nzv <- nearZeroVar(train)
+train.2 <- train[, - nzv] # exclude the close-to-zero-var features
+dim(train.2) # 1460   59
+
+# we deduct 21 variables !!(CAUTION! parameters need to be adjusted)
+```
+
+
+```{r}
+num.feature <- c()
+cat.feature <- c()
+
+for (i in 1: ncol(train.2)-1){
+  class <- class(train.2[,i])
+  if (class == 'numeric') {
+    num.feature <- c(num.feature, i)
+    }
+  else{
+    cat.feature <- c(cat.feature, i)
+    }
+}
+cat.feature <- cat.feature[-1]
+```
+
+
+```{r}
+
+# Between continuous/numeric variables 
+# 连续数值之间的相关性分析
+#par = 0.9
+#descrCor = ifelse(cov(train[,num.feature], method='spearman')> par, 1,0)
+
+#cor.num2num <- sort(colMeans(descrCor), decreasing = T)
+
+train.num <- train.2[,num.feature]
+descrCor <-  cor(train.num)
+highlyCorDescr <- findCorrelation(descrCor, cutoff = .75)
+train.num2 <- train.num[,-highlyCorDescr] # delete one variable
+descrCor2 <- cor(train.num)
+summary(descrCor2[upper.tri(descrCor2)])
+
+#heatmap(as.matrix(train[,num.feature]),Rowv = NA,Colv = NA,main="Numeric Features")
+#plot(cor.num2num, type = 'b', col = 'lightcoral')
+```
+
+```{r}
+# Between categorical variables 
+library(sjstats)
+
+cramer_ind = c()
+for (i in 1:length(cat.feature)){
+  for (j in 1:length(cat.feature)){
+      tab = table(train.2[,cat.feature[i]], train.2[,cat.feature[j]])
+      cramer_ind = append(cramer_ind, cramer(tab))
+  }
+}
+cramer_ma = matrix(cramer_ind, ncol = length(cat.feature))
+
+index_c = c()
+for (i in 1:length(cat.feature)){
+  index_c = append(index_c, mean(cramer_ma[,i]))
+}
+sort_c = sort(index_c, index.return = T, decreasing = T)
+remain.cat <- cat.feature[-c(sort_c$ix[1:5])]
+
+train.cat <- train.2[,remain.cat]
+```
+
+```{r}
+# Excluded variables
+names.full <- names(train)[-length(names(train))]
+names <- c(names(train.cat),names(train.num2))
+log <- names.full %in% names
+ex.feature <-c()
+for (i in 1:length(log)){
+  if (log[i] == F) {
+    ex.feature <- c(ex.feature, names(train)[i])
+  }
+}
+ex.feature # These 29 variables are tentatively dropped.
+```
+
+```{r}
+# Between continuous and categorical variables 
+# 连续数值和类变量之间的相关性分析
+# 使用Logistic Regression 通过检验error rate来进行类相关性分析
+# 鉴于数值变量组和类变量组的数据都比较多，我们先利用组内删选变量的方式
+# 然后再类间通过上述方法进行筛选
+
+#select.cat <- train.cat
+#select.num <- train.num2
+
+```
+
+
+
+
+
+
+
+
+
+
+
