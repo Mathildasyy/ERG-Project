@@ -105,29 +105,12 @@ colSums(is.na(train))
 ```
 
 ```{r}
-#for (i in 1:dim(train)[2]){
-#  if (class(train[,i]) == 'character') {
-#    Type_peau<-as.factor(train[,i])
-#    train[,i] = unclass(Type_peau)
-#  }
-#}
-
-#train_var = train[,-ncol(train)]
-#descrCor = cor(train_var)
-#summary(descrCor[upper.tri(descrCor)])
-#highlyCorDescr <- findCorrelation(descrCor, cutoff = .75)
-#train_var <- train_var[,-highlyCorDescr]
-#descrCor2 <- cor(train_dummy)
-#summary(descrCor2[upper.tri(descrCor2)])
-```
-
-```{r}
 # Zero- and Near Zero-Variance Predictors
 dim(train) # dim: 1460   80
 nzv <- nearZeroVar(train, saveMetrics = T)
-nzv[nzv$nzv,][1:10,]
+nzv[nzv$nzv,][,]
 nzv <- nearZeroVar(train)
-train.2 <- train[, - nzv] # exclude the close-to-zero-var features
+train.2 <- train[, -nzv] # exclude the close-to-zero-var features
 dim(train.2) # 1460   59
 
 # we deduct 21 variables !!(CAUTION! parameters need to be adjusted)
@@ -261,7 +244,6 @@ ex.feature # These 29 variables are tentatively dropped.
 
 #select.cat <- train.cat
 #select.num <- train.num2
-
 ```
 
 
