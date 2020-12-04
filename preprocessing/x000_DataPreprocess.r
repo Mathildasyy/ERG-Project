@@ -6,8 +6,8 @@ library(caret)
 
 
 # read data files
-train <- read.csv('train.csv')[,-1]
-test <- read.csv('test.csv')
+train <- read.csv('~/Documents/Github/ERGProject/data/train.csv')[,-1]
+test <- read.csv('~/Documents/Github/ERGProject/data/test.csv')
 summary(train)
 
 # Now, let's observe the training data
