@@ -124,7 +124,7 @@ colSums(is.na(train))
 ```{r}
 # Zero- and Near Zero-Variance Predictors
 dim(train) # dim: 1460   80
-nzv <- nearZeroVar(train, saveMetrics = T)
+#nzv <- nearZeroVar(train, saveMetrics = T)
 nzv[nzv$nzv,][1:10,]
 nzv <- nearZeroVar(train)
 train.2 <- train[, - nzv] # exclude the close-to-zero-var features

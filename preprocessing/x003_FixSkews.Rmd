@@ -108,7 +108,7 @@ colSums(is.na(train))
 # Zero- and Near Zero-Variance Predictors
 dim(train) # dim: 1460   80
 nzv <- nearZeroVar(train, saveMetrics = T)
-nzv[nzv$nzv,][,]
+nzv[nzv$nzv,][1:10,]
 nzv <- nearZeroVar(train)
 train.2 <- train[, -nzv] # exclude the close-to-zero-var features
 dim(train.2) # 1460   59
@@ -132,6 +132,7 @@ for (i in 1: ncol(train.2)-1){
 }
 cat.feature <- cat.feature[-1]
 ```
+
 
 ```{r}
 # Fix skewed features
@@ -179,7 +180,6 @@ round(skewness(train.2_num$LotFrontage, na.rm = FALSE), 3)
 ```
 
 ```{r}
-
 # Between continuous/numeric variables 
 # 连续数值之间的相关性分析
 #par = 0.9
@@ -188,14 +188,22 @@ round(skewness(train.2_num$LotFrontage, na.rm = FALSE), 3)
 #cor.num2num <- sort(colMeans(descrCor), decreasing = T)
 
 train.num <- train.2[,num.feature]
-descrCor <-  cor(train.num)
-highlyCorDescr <- findCorrelation(descrCor, cutoff = .75)
+descrCor <-  cor(train.num, method = 'spearman')
+highlyCorDescr <- findCorrelation(descrCor, cutoff = .85)
 train.num2 <- train.num[,-highlyCorDescr] # delete one variable
-descrCor2 <- cor(train.num)
+descrCor2 <- cor(train.num, method = 'spearman')
 summary(descrCor2[upper.tri(descrCor2)])
-
 #heatmap(as.matrix(train[,num.feature]),Rowv = NA,Colv = NA,main="Numeric Features")
 #plot(cor.num2num, type = 'b', col = 'lightcoral')
+```
+
+```{r}
+source('preprocess.R')
+train.2 <- preprocess.nzv(train,show = 10)
+num.feature <- preprocess.getNum(train.2,1:58)
+cat.feature <- preprocess.getCat(train.2, 1:58)
+trainNum2 <- preprocess.corNum2Num(train.2,num.feature)
+trainCat <- preprocess.corCat2Cat(train.2,cat.feature)
 ```
 
 ```{r}
