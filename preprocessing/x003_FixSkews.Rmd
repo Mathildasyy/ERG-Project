@@ -24,8 +24,8 @@ colSums(is.na(train))
 以上是对各column内NA出现次数的统计，下面开始具体讨论各个predictor中的NA是属于数据缺失还是本身就有具体的含义。
 
 1）属于数据缺失（4个predictors）
-LotFrontage: 259个缺失 是numeric variable, 确实缺失
-MasVnrType: 8个缺失 有864个none，有8个NA，这8个NA是属于缺失的
+LotFrontage: 259个缺失 是numeric variable, 确实缺失  
+MasVnrType: 8个缺失 有864个none，有8个NA，这8个NA是属于缺失的 
 MasVnrArea: 8 是numeric variable, 确实有8个缺失，和MasVnrType的8个缺失对应
 Electrical: 1 属于缺失
 

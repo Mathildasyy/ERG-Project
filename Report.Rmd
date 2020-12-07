@@ -1,0 +1,109 @@
+---
+title: "Report"
+author: "Sun Yan"
+date: "12/7/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+source('~/Documents/Github/ERGProject/preprocessing/preprocess.R')
+```
+
+```{r, echo = FALSE}
+# Import preparatoins:
+library(mice)
+library(caret)
+library(RANN)
+
+# remove the ID column
+train <- read.csv('~/Documents/Github/ERGProject/data/train.csv')[,-1] 
+test <- read.csv('~/Documents/Github/ERGProject/data/test.csv')[,-1]
+```
+
+```{r}
+# Fix the NA problems
+train <- preprocess.fixNA(train)
+# Check the frequency of NA in each column
+colSums(is.na(train))
+```
+
+```{r}
+y <- train$SalePrice
+train <- train[,-ncol(train)]
+train.2 <- preprocess.nzv(train,show = 10)
+num.feature <- preprocess.getNum(train.2, range= 1:ncol(train.2))
+cat.feature <- preprocess.getCat(train.2, range= 1:ncol(train.2))
+trainNum <- preprocess.corNum2Num(train.2,num.feature)
+trainCat <- preprocess.corCat2Cat(train.2,cat.feature)
+```
+
+
+
+```{r}
+remotes::install_github("privefl/bigutilsr", force = TRUE)
+library(bigutilsr)
+```
+
+
+```{r}
+train.3 <- cbind(trainNum,trainCat)
+```
+
+```{r}
+pca <- prcomp(trainNum, scale = T)
+U <- pca$x
+library(ggplot2)
+#theme_set(bigstatsr::theme_bigstatsr(0.8))
+qplot(U[, 1], U[, 2]) + coord_equal()
+```
+
+
+```{r}
+# a simple way:
+
+library(magrittr)
+a <- apply(U, 2, function(x) which( abs(x - mean(x)) > (6 * sd(x)) )) %>%
+  Reduce(union, .)
+
+## 1299  314  336  250  935  154  323  471  543  765  925   52   89  171  186  198  199  264  268  407
+## 636  730  884 1010 1032 1174 1441
+
+```
+
+```{r}
+ind.out <- apply(U, 2, function(x) which( (abs(x - median(x)) / mad(x)) > 6 )) %>%
+  Reduce(union, .) %>%
+  print()
+```
+
+
+```{r}
+trainNum2 <- trainNum[-ind.out,]
+pca2 <- prcomp(trainNum2, scale = T)
+U2 <- pca2$x
+
+dist <- apply(U2, 2, function(x) abs(x - median(x)) / mad(x)) %>%
+  apply(1, max)
+qplot(U2[, 1], U2[, 2], color = dist, size = I(3)) + coord_equal() + 
+  scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6))
+
+
+````
+
+```{r}
+ind.out2 <- apply(U2, 2, function(x) which( (abs(x - median(x)) / mad(x)) > 6 )) %>%
+  Reduce(union, .) %>%
+  print()
+```
+
+
+
+```{r}
+#dist2 <- covRob(U2, estim = "pairwiseGK")$dist
+#qplot(dist, sqrt(dist2))
+```
+

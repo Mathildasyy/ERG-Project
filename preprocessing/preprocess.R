@@ -6,6 +6,34 @@ preprocess <- function(x,...){
   UseMethod(preprocess)
 }
 
+preprocess.fixNA <- function(x,...){
+  class(x)<- 'data.frame'
+  
+  x$Alley[is.na(x$Alley)] <- "None"
+  x$BsmtQual[is.na(x$BsmtQual)] <- "None"
+  x$BsmtCond[is.na(x$BsmtCond)] <- "None"
+  x$BsmtExposure[is.na(x$BsmtExposure)] <- "None"
+  x$BsmtFinType1[is.na(x$BsmtFinType1)] <- "None"
+  x$BsmtFinType2[is.na(x$BsmtFinType2)] <- "None"
+  x$FireplaceQu[is.na(x$FireplaceQu)] <- "None"
+  x$GarageType[is.na(x$GarageType)] <- "None"
+  x$GarageFinish[is.na(x$GarageFinish)] <- "None"
+  x$GarageQual[is.na(x$GarageQual)] <- "None"
+  x$GarageCond[is.na(x$GarageCond)] <- "None"
+  x$PoolQC[is.na(x$PoolQC)] <- "None"
+  x$Fence[is.na(x$Fence)] <- "None"
+  x$MiscFeature[is.na(x$MiscFeature)] <- "None"
+  x$GarageYrBlt[is.na(x$GarageYrBlt)] <- 0
+  
+  x$MasVnrType[is.na(x$MasVnrType)] <- "None"
+  x$Electrical[is.na(x$Electrical)] <- "SBrkr"
+  
+  xmodel <- preProcess(x, "knnImpute", k=38) # set k to equal to the square root of number of variables 
+  x <- predict(xmodel, x)
+  
+  return(x)
+}
+
 preprocess.myMode <- function(x,...){
   class(x)<- 'data.frame'
   unique_x <- unique(x)
@@ -62,9 +90,9 @@ preprocess.corNum2Num <- function(x,index, cut = .85, cormethod = 'spearman',...
   num <- x[,index]
   descrCor <-  cor(num, method = cormethod)
   highlyCorDescr <- findCorrelation(descrCor, cutoff = cut)
-  removed <- num[,-highlyCorDescr] 
+  remaining <- num[,-highlyCorDescr] 
   print(paste('Features removed:',names(x)[highlyCorDescr]))
-  return(removed)
+  return(remaining) # return the dataframe
 }
 
 preprocess.corCat2Cat <-function(x, index, remove = 5,...){
@@ -83,14 +111,45 @@ preprocess.corCat2Cat <-function(x, index, remove = 5,...){
     index_c = append(index_c, mean(cramer_ma[,i]))
   }
   sort_c = sort(index_c, index.return = T, decreasing = T)
-  removed.cat <- index[c(sort_c$ix[1:remove])]
-  print(paste('Features removed:',names(x)[removed.cat]))
-  return(x[,-removed.cat])
+  removedCat <- index[c(sort_c$ix[1:remove])]
+  print(paste('Features removed:',names(x)[removedCat]))
+  return(x[,-removedCat]) # return the dataframe
 }
 
-preprocess.corNum2Cat <- function(x,numIndex, catIndex, accuracy =.8,...){
+preprocess.corNum2Cat <- function(x,numIndex, catIndex, removeNum = 2, accuracy =.8,...){
+  class(x)<- 'data.frame'
+  removedIndex <- c()
+  allResult <- matrix(rep(0,100))
   
+  for (i in numIndex){
+    num = x[,i]
+    for (j in catIndex){
+      cat = x[,j]
+      pair = data.frame(cat = cat, num = num)
+      fit <- train(cat~num, 
+            data = pair, 
+            method = 'multinom',
+            trControl = trainControl(method = "cv", number = 5))
+      result <- fit$results$RMSE > accuracy
+      allResult[i] <- allResult[i]+ifelse(result,1,0)
+      allResult[j] <- allResult[i]+ifelse(result,1,0)
+    }
+  }
+  for (t in removeNum){
+    removedIndex <- c(removedIndex, which.max(allResult))
+  }
+  return(x[,-removedIndex])
 }
+
+
+preprocess.PCA <- function(x,...){
+  # Your show time!
+}
+
+preprocess.clustering <- function(x,...){
+  # Your show time!
+}
+
 
 preprocess.default <- function(x,...){
   print('Class Errror!')
