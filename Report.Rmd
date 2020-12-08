@@ -42,13 +42,6 @@ trainCat <- preprocess.corCat2Cat(train.2,cat.feature)
 ```
 
 
-
-```{r}
-remotes::install_github("privefl/bigutilsr", force = TRUE)
-library(bigutilsr)
-```
-
-
 ```{r}
 train.3 <- cbind(trainNum,trainCat)
 ```
@@ -58,7 +51,8 @@ pca <- prcomp(trainNum, scale = T)
 U <- pca$x
 library(ggplot2)
 #theme_set(bigstatsr::theme_bigstatsr(0.8))
-qplot(U[, 1], U[, 2]) + coord_equal()
+qplot(U[, 1], U[, 2],) + coord_equal() +
+  scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6))
 ```
 
 
@@ -75,8 +69,10 @@ a <- apply(U, 2, function(x) which( abs(x - mean(x)) > (6 * sd(x)) )) %>%
 ```
 
 ```{r}
+print('Outliers:')
 ind.out <- apply(U, 2, function(x) which( (abs(x - median(x)) / mad(x)) > 6 )) %>%
   Reduce(union, .) %>%
+  #
   print()
 ```
 
@@ -90,8 +86,6 @@ dist <- apply(U2, 2, function(x) abs(x - median(x)) / mad(x)) %>%
   apply(1, max)
 qplot(U2[, 1], U2[, 2], color = dist, size = I(3)) + coord_equal() + 
   scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6))
-
-
 ````
 
 ```{r}

@@ -1,6 +1,8 @@
 
 library(caret)
 library(sjstats)
+library(ggplot2)
+library(magrittr)
 
 preprocess <- function(x,...){
   UseMethod(preprocess)
@@ -43,6 +45,7 @@ preprocess.myMode <- function(x,...){
 
 preprocess.nzv <- function(x, show = 'all',...){
   class(x) <- 'data.frame' 
+  print('Preprocess: Near-zero-variance features')
   print(paste('There are',dim(x)[2],'columns in the original dataframe.'))
   nzv <- nearZeroVar(x, saveMetrics = T)
   ifelse(show =='all', print(nzv[nzv$nzv,]),print(nzv[nzv$nzv,][c(1:show),]))
@@ -91,6 +94,7 @@ preprocess.corNum2Num <- function(x,index, cut = .85, cormethod = 'spearman',...
   descrCor <-  cor(num, method = cormethod)
   highlyCorDescr <- findCorrelation(descrCor, cutoff = cut)
   remaining <- num[,-highlyCorDescr] 
+  print('Preprocess: Correlation between numeric features')
   print(paste('Features removed:',names(x)[highlyCorDescr]))
   return(remaining) # return the dataframe
 }
@@ -112,6 +116,7 @@ preprocess.corCat2Cat <-function(x, index, remove = 5,...){
   }
   sort_c = sort(index_c, index.return = T, decreasing = T)
   removedCat <- index[c(sort_c$ix[1:remove])]
+  print('Preprocess: Correlation between categorical features')
   print(paste('Features removed:',names(x)[removedCat]))
   return(x[,-removedCat]) # return the dataframe
 }
@@ -138,12 +143,39 @@ preprocess.corNum2Cat <- function(x,numIndex, catIndex, removeNum = 2, accuracy 
   for (t in removeNum){
     removedIndex <- c(removedIndex, which.max(allResult))
   }
+  print('Preprocess: Correlation between numeric and categorical features')
+  
   return(x[,-removedIndex])
 }
 
 
 preprocess.PCA <- function(x,...){
-  # Your show time!
+  class(x) <- 'data.frame'
+  
+  # plot the original PCA (2 dimensions)
+  pca <- prcomp(x, scale = T)
+  U <- pca$x
+  dist1 <- apply(U, 2, function(x) abs(x - median(x)) / mad(x)) %>%
+    apply(1, max)
+  qplot(U[, 1], U[, 2], color = dist1, size = I(3)) + coord_equal() + 
+    scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6))
+  
+  # identify outliers (robust way:|x - median|/MeanAverageDeviation)
+  print('These are outliers:')
+  ind.out <- apply(U, 2, function(x) which( (abs(x - median(x)) / mad(x)) > 6 )) %>%
+    Reduce(union, .) %>%
+    print()
+  
+  # delete them
+  x2 <- x[-ind.out,]
+  
+  # plot the new PCA (2 dimensions)
+  pca2 <- prcomp(x2, scale = T)
+  U2 <- pca2$x
+  dist2 <- apply(U2, 2, function(x) abs(x - median(x)) / mad(x)) %>%
+    apply(1, max)
+  qplot(U2[, 1], U2[, 2], color = dist2, size = I(3)) + coord_equal() + 
+    scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6))
 }
 
 preprocess.clustering <- function(x,...){
