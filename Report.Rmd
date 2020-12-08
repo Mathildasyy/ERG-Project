@@ -39,7 +39,7 @@ trainCat <- preprocess.corCat2Cat(train.2,cat.feature)
 ```{r}
 # Remove outliers
 outliers <- preprocess.PCA(trainNum)
-trainNum2[-outliers,]
+trainNum2 <- trainNum[-outliers,]
 ```
 
 
