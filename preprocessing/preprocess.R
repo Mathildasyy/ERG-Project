@@ -1,4 +1,5 @@
-
+library(mice)
+library(RANN)
 library(caret)
 library(sjstats)
 library(ggplot2)
@@ -176,9 +177,11 @@ preprocess.PCA <- function(x,...){
     apply(1, max)
   qplot(U2[, 1], U2[, 2], color = dist2, size = I(3)) + coord_equal() + 
     scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6))
+  
+  return(ind.out)
 }
 
-preprocess.clustering <- function(x,...){
+preprocess.fixY <- function(x,...){
   # Your show time!
 }
 
