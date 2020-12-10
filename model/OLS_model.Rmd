@@ -1,0 +1,15 @@
+---
+title: "OLS_model"
+author: "Sun Yan, He Shuqing"
+date: "12/10/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+train <- read.csv('')
+
+```

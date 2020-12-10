@@ -68,7 +68,7 @@ outliers <- preprocess.PCA(trainNum) # Remove and store outliers index
 ```{r}
 # fix the skewness of the Sale Price
 # 平滑处理预测值 log(1+x)
-train.y <- log1p(train.y[-outliers])
+Y <- log1p(train.y[-outliers])
 ```
 
 ```{r}
@@ -77,7 +77,7 @@ train.y <- log1p(train.y[-outliers])
 
 # 最终我们得到完整处理完的数据集train.full， 包含以下三部分：
 # 1.数值特征，2.类别特征，3.预测值）
-train.full <- cbind(trainNum[-outliers,],trainCat[-outliers,], train.y)
+train.full <- cbind(trainNum[-outliers,],trainCat[-outliers,], Y)
 ```
 
 ```{r}
