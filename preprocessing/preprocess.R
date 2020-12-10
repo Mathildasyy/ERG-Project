@@ -57,11 +57,10 @@ preprocess.nzv <- function(x, show = 'all',...){
   return(new) # exclude the close-to-zero-var features
 }
 
-preprocess.getNum <- function(x, range = 'all', type = 'index',...){
+preprocess.getNum <- function(x, type = 'index',...){
   class(x)<- 'data.frame'
   num.feature <- c()
-  index <- ifelse(range == 'all', 1:ncol(x), range)
-  for (i in index){
+  for (i in 1:ncol(x)){
     class <- class(x[,i])
     if (class == 'numeric') {
       if(type == 'index'){num.feature <- c(num.feature, i)}
@@ -71,11 +70,10 @@ preprocess.getNum <- function(x, range = 'all', type = 'index',...){
   return(num.feature)
 }
 
-preprocess.getCat <- function(x, range = 'all', type = 'index',...){
+preprocess.getCat <- function(x, type = 'index',...){
   class(x)<- 'data.frame'
   cat.feature <- c()
-  index <- ifelse(range == 'all', 1:ncol(x), range)
-  for (i in index){
+  for (i in 1:ncol(x)){
     class <- class(x[,i])
     if (class == 'character') {
       if(type == 'index'){cat.feature <- c(cat.feature, i)}
@@ -83,10 +81,6 @@ preprocess.getCat <- function(x, range = 'all', type = 'index',...){
     }
   }
   return(cat.feature)
-}
-
-preprocess.fixSkews <- function(x,...){
-  # Your show time!
 }
 
 preprocess.corNum2Num <- function(x,index, cut = .85, cormethod = 'spearman',...){
@@ -158,8 +152,8 @@ preprocess.PCA <- function(x,...){
   U <- pca$x
   dist1 <- apply(U, 2, function(x) abs(x - median(x)) / mad(x)) %>%
     apply(1, max)
-  qplot(U[, 1], U[, 2], color = dist1, size = I(3)) + coord_equal() + 
-    scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6))
+  print(qplot(U[, 1], U[, 2], color = dist1, size = I(3)) + coord_equal() + 
+    scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6)))
   
   # identify outliers (robust way:|x - median|/MeanAverageDeviation)
   print('These are outliers:')
@@ -175,16 +169,16 @@ preprocess.PCA <- function(x,...){
   U2 <- pca2$x
   dist2 <- apply(U2, 2, function(x) abs(x - median(x)) / mad(x)) %>%
     apply(1, max)
-  qplot(U2[, 1], U2[, 2], color = dist2, size = I(3)) + coord_equal() + 
-    scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6))
+  print(qplot(U2[, 1], U2[, 2], color = dist2, size = I(3)) + coord_equal() + 
+    scale_color_viridis_c(trans = "log", breaks = c(1, 3, 6)))
   
   return(ind.out)
 }
 
 preprocess.fixY <- function(x,...){
-  # Your show time!
+  class(x) <- 'data.frame'
+  x <- log1p(x)
 }
-
 
 preprocess.default <- function(x,...){
   print('Class Errror!')

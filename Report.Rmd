@@ -10,49 +10,82 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+# 我们先将写好的预处理包导入
 source('~/Documents/Github/ERG-Project/preprocessing/preprocess.R')
 ```
 
 ```{r, echo = FALSE}
-# remove the ID column
+# 再导入训练数据集
+# remove the ID column 除去序列号
+
 train <- read.csv('~/Documents/Github/ERG-Project/data/train.csv')[,-1] 
+# 剥离“房价”因变量
 train.y <- train[,ncol(train)]
+# train里保留了所有特征
 train <- train[,-ncol(train)]
-test <- read.csv('~/Documents/Github/ERG-Project/data/test.csv')[,-1]
 ```
 
 ```{r}
-# Fix the NA problems 
-train <- preprocess.fixNA(train) 
-# Check the frequency of NA in each column
-colSums(is.na(train)) 
+# preprocess.fixNA的输入：目标特征集；
+#                   输出：依照不同分类填补后的特征集
+train <- preprocess.fixNA(train)  # Fix the NA problems 
+
+#Check the frequency of NA in each column
+#colSums(is.na(train)) 经查看，已无缺失值
 ```
 
 ```{r}
+# preprocess.nzv的输入：目标特征集+显示特征下数据方差接近0的10组特征名称（若不输入，显示全部）
+#                 输出：除去数据方差接近0的特征后的特征集
 train.2 <- preprocess.nzv(train,show = 10)
-num.feature <- preprocess.getNum(train.2, range= 1:ncol(train.2))
-cat.feature <- preprocess.getCat(train.2, range= 1:ncol(train.2))
+
+# preprocess.getNum的输入：目标特征集
+#                    输出：其中是数值的特征序号
+num.feature <- preprocess.getNum(train.2)
+
+# preprocess.getCat的输入：目标特征集
+#                    输出：其中是类别的特征序号
+cat.feature <- preprocess.getCat(train.2)
+
+# preprocess.corNum2Num的输入：目标特征集+其中数值的特征序号（从上获得）
+#                        输出：除去高相关性特征后的特征集 (方法：Spearman Correlation)
 trainNum <- preprocess.corNum2Num(train.2,num.feature)
+
+# preprocess.corCcat2Cat的输入：目标特征集+其中类别的特征序号（从上获得）
+#                         输出：除去5个高相关性特征后的特征集(方法：Cramer's V)
 trainCat <- preprocess.corCat2Cat(train.2,cat.feature)
 ```
 
 ```{r}
-# Remove outliers
-outliers <- preprocess.PCA(trainNum)
-trainNum2 <- trainNum[-outliers,]
+# 通过PCA降维分析甄别异常值
+
+# preprocess.PCA的输入：目标特征集（数值）
+#                 输出：被检测为异常值的序号(方法：MAD, Mean Absolute Deviation)
+outliers <- preprocess.PCA(trainNum) # Remove and store outliers index
 ```
 
 
 ```{r}
-# the cleaned dataset (witout Sale price)
-train.4 <- cbind(trainNum2,trainCat[-outliers,])
+# fix the skewness of the Sale Price
+# 平滑处理预测值 log(1+x)
+train.y <- log1p(train.y[-outliers])
 ```
 
 ```{r}
-# 这里的函数还没做好QAQ
-#train.y <- preprocess.fixY(train.y)
+# combine the features and the response
+# the full train dataset
+
+# 最终我们得到完整处理完的数据集train.full， 包含以下三部分：
+# 1.数值特征，2.类别特征，3.预测值）
+train.full <- cbind(trainNum[-outliers,],trainCat[-outliers,], train.y)
 ```
 
+```{r}
+# 为了方便之后利用，我们将数据导出到data文件夹里，文件命名为“train.full“
+write.csv(train.full,'~/Documents/Github/ERG-Project/data/train_full.csv')
+
+# 大家可以按需进行数据预处理~
+```
 
 
 
