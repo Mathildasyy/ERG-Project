@@ -110,10 +110,10 @@ preprocess.corCat2Cat <-function(x, index, remove = 5,...){
     index_c = append(index_c, mean(cramer_ma[,i]))
   }
   sort_c = sort(index_c, index.return = T, decreasing = T)
-  removedCat <- index[c(sort_c$ix[1:remove])]
+  remainCat <- index[-c(sort_c$ix[1:remove])]
   print('Preprocess: Correlation between categorical features')
-  print(paste('Features removed:',names(x)[removedCat]))
-  return(x[,-removedCat]) # return the dataframe
+  print(paste('Features removed:',names(x)[remainCat]))
+  return(x[,remainCat]) # return the dataframe
 }
 
 preprocess.corNum2Cat <- function(x,numIndex, catIndex, removeNum = 2, accuracy =.8,...){
