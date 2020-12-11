@@ -9,25 +9,146 @@ preprocess <- function(x,...){
   UseMethod(preprocess)
 }
 
+preprocess.feaEngineer <- function(x,...){
+  class(x) <- 'data.frame'
+  
+  x$GarageQual[x$GarageQual=='Ex'] = 5
+  x$GarageQual[x$GarageQual=='Gd'] = 4
+  x$GarageQual[x$GarageQual=='TA'] = 3
+  x$GarageQual[x$GarageQual=='Fa'] = 2
+  x$GarageQual[x$GarageQual=='Po'] = 1
+  x$GarageQual[is.na(x$GarageQual)] = 0
+  x$GarageQual <- as.numeric(x$GarageQual)
+  
+  x$GarageCond[x$GarageCond=='Ex'] = 5
+  x$GarageCond[x$GarageCond=='Gd'] = 4
+  x$GarageCond[x$GarageCond=='TA'] = 3
+  x$GarageCond[x$GarageCond=='Fa'] = 2
+  x$GarageCond[x$GarageCond=='Po'] = 1
+  x$GarageCond[is.na(x$GarageCond)] = 0
+  x$GarageCond <- as.numeric(x$GarageCond)
+  
+  x$GarageQual <- x$GarageQual + x$GarageCond
+  x <- x[,-which(colnames(x)=="GarageCond")]
+  
+  # 房屋整体质量+状态
+  x$OverallQual <-x$OverallQual + x$OverallCond
+  x <- x[,-which(colnames(x)=="OverallCond")]
+  
+  # 外部材料的质量+状态
+  x$ExterCond[x$ExterCond == 'Ex'] = 5
+  x$ExterCond[x$ExterCond == 'Gd'] = 4
+  x$ExterCond[x$ExterCond == 'TA'] = 3
+  x$ExterCond[x$ExterCond == 'Fa'] = 2
+  x$ExterCond[x$ExterCond == 'Po'] = 1
+  x$ExterCond <- as.numeric(x$ExterCond)
+  
+  x$ExterQual[x$ExterQual == 'Ex'] = 5
+  x$ExterQual[x$ExterQual == 'Gd'] = 4
+  x$ExterQual[x$ExterQual == 'TA'] = 3
+  x$ExterQual[x$ExterQual == 'Fa'] = 2
+  x$ExterQual[x$ExterQual == 'Po'] = 1
+  x$ExterQual <- as.numeric(x$ExterQual)
+  
+  x$ExterQual <- x$ExterQual+x$ExterCond
+  x <- x[,-which(colnames(x)=="ExterCond")]
+  
+  # 地下室的质量+状态
+  x$BsmtCond[x$BsmtCond == 'Ex'] = 5
+  x$BsmtCond[x$BsmtCond == 'Gd'] = 4
+  x$BsmtCond[x$BsmtCond == 'TA'] = 3
+  x$BsmtCond[x$BsmtCond == 'Fa'] = 2
+  x$BsmtCond[x$BsmtCond == 'Po'] = 1
+  x$BsmtCond[is.na(x$BsmtCond) ] = 0
+  x$BsmtCond <- as.numeric(x$BsmtCond)
+  
+  x$BsmtQual[x$BsmtQual == 'Ex'] = 5
+  x$BsmtQual[x$BsmtQual == 'Gd'] = 4
+  x$BsmtQual[x$BsmtQual == 'TA'] = 3
+  x$BsmtQual[x$BsmtQual == 'Fa'] = 2
+  x$BsmtQual[x$BsmtQual == 'Po'] = 1
+  x$BsmtQual[is.na(x$BsmtQual) ] = 0
+  x$BsmtQual <- as.numeric(x$BsmtQual)
+  
+  x$BsmtQual <- x$BsmtQual+x$BsmtCond
+  x <- x[,-which(colnames(x)=="BsmtCond")]
+  
+  # 地下室的敞开部分
+  x$BsmtExposure[x$BsmtExposure == 'Gd'] = 4
+  x$BsmtExposure[x$BsmtExposure == 'Av'] = 3
+  x$BsmtExposure[x$BsmtExposure == 'Mn'] = 2
+  x$BsmtExposure[x$BsmtExposure == 'No'] = 1
+  x$BsmtExposure[is.na(x$BsmtExposure) ] = 0
+  x$BsmtExposure <- as.numeric(x$BsmtExposure)
+  
+  # 地下室完工面积等级
+  x$BsmtFinType1[x$BsmtFinType1 == 'GLQ'] = 6
+  x$BsmtFinType1[x$BsmtFinType1 == 'ALQ'] = 5
+  x$BsmtFinType1[x$BsmtFinType1 == 'BLQ'] = 4
+  x$BsmtFinType1[x$BsmtFinType1 == 'Rec'] = 3
+  x$BsmtFinType1[x$BsmtFinType1 == 'LwQ'] = 2
+  x$BsmtFinType1[x$BsmtFinType1 == 'Unf'] = 1
+  x$BsmtFinType1[is.na(x$BsmtFinType1)] = 0
+  x$BsmtFinType1 <- as.numeric(x$BsmtFinType1)
+  
+  x$BsmtFinType2[x$BsmtFinType2 == 'GLQ'] = 6
+  x$BsmtFinType2[x$BsmtFinType2 == 'ALQ'] = 5
+  x$BsmtFinType2[x$BsmtFinType2 == 'BLQ'] = 4
+  x$BsmtFinType2[x$BsmtFinType2 == 'Rec'] = 3
+  x$BsmtFinType2[x$BsmtFinType2 == 'LwQ'] = 2
+  x$BsmtFinType2[x$BsmtFinType2 == 'Unf'] = 1
+  x$BsmtFinType2[is.na(x$BsmtFinType2)] = 0
+  x$BsmtFinType2 <- as.numeric(x$BsmtFinType2)
+  
+  x$BsmtFinType1 <- x$BsmtFinType1 + x$BsmtFinType2
+  x <- x[,-which(colnames(x)=="BsmtFinType2")]
+  
+  # 游泳池质量
+  x$PoolQC[x$PoolQC == 'Ex'] = 4
+  x$PoolQC[x$PoolQC == 'Gd'] = 3
+  x$PoolQC[x$PoolQC == 'TA'] = 2
+  x$PoolQC[x$PoolQC == 'Fa'] = 1
+  x$PoolQC[is.na(x$PoolQC)] = 0
+  x$PoolQC <- as.numeric(x$PoolQC)
+  
+  # 栅栏质量
+  x$Fence[x$Fence == 'GdPrv'] = 4
+  x$Fence[x$Fence == 'MnPrv'] = 3
+  x$Fence[x$Fence == 'GdWo'] = 2
+  x$Fence[x$Fence == 'MnWw'] = 1
+  x$Fence[is.na(x$Fence)] = 0
+  x$Fence <- as.numeric(x$Fence)
+  
+  # 厨房质量
+  x$KitchenQual[x$KitchenQual == 'Ex'] = 4
+  x$KitchenQual[x$KitchenQual == 'Gd'] = 3
+  x$KitchenQual[x$KitchenQual == 'TA'] = 2
+  x$KitchenQual[x$KitchenQual == 'Fa'] = 1
+  x$KitchenQual[x$KitchenQual == 'Po'] = 0
+  x$KitchenQual <- as.numeric(x$KitchenQual)
+  
+  # 壁炉质量
+  x$FireplaceQu[x$FireplaceQu == 'Ex'] = 5
+  x$FireplaceQu[x$FireplaceQu == 'Gd'] = 4
+  x$FireplaceQu[x$FireplaceQu == 'TA'] = 3
+  x$FireplaceQu[x$FireplaceQu == 'Fa'] = 2
+  x$FireplaceQu[x$FireplaceQu == 'Po'] = 1
+  x$FireplaceQu[is.na(x$FireplaceQu)] = 0
+  x$FireplaceQu <- as.numeric(x$FireplaceQu)
+  
+  return(x)
+}
+
+
+
 preprocess.fixNA <- function(x,...){
   class(x)<- 'data.frame'
   
   x$Alley[is.na(x$Alley)] <- "None"
-  x$BsmtQual[is.na(x$BsmtQual)] <- "None"
-  x$BsmtCond[is.na(x$BsmtCond)] <- "None"
-  x$BsmtExposure[is.na(x$BsmtExposure)] <- "None"
-  x$BsmtFinType1[is.na(x$BsmtFinType1)] <- "None"
-  x$BsmtFinType2[is.na(x$BsmtFinType2)] <- "None"
-  x$FireplaceQu[is.na(x$FireplaceQu)] <- "None"
   x$GarageType[is.na(x$GarageType)] <- "None"
   x$GarageFinish[is.na(x$GarageFinish)] <- "None"
-  x$GarageQual[is.na(x$GarageQual)] <- "None"
-  x$GarageCond[is.na(x$GarageCond)] <- "None"
-  x$PoolQC[is.na(x$PoolQC)] <- "None"
-  x$Fence[is.na(x$Fence)] <- "None"
   x$MiscFeature[is.na(x$MiscFeature)] <- "None"
   x$GarageYrBlt[is.na(x$GarageYrBlt)] <- 0
-  
   x$MasVnrType[is.na(x$MasVnrType)] <- "None"
   x$Electrical[is.na(x$Electrical)] <- "SBrkr"
   
@@ -112,7 +233,7 @@ preprocess.corCat2Cat <-function(x, index, remove = 5,...){
   sort_c = sort(index_c, index.return = T, decreasing = T)
   remainCat <- index[-c(sort_c$ix[1:remove])]
   print('Preprocess: Correlation between categorical features')
-  print(paste('Features removed:',names(x)[remainCat]))
+  print(paste('Features removed:',names(x)[index[c(sort_c$ix[1:remove])]]))
   return(x[,remainCat]) # return the dataframe
 }
 
@@ -126,7 +247,7 @@ preprocess.corNum2Cat <- function(x,numIndex, catIndex, removeNum = 2, accuracy 
     for (j in catIndex){
       cat = x[,j]
       pair = data.frame(cat = cat, num = num)
-      fit <- train(cat~num, 
+      fit <- x(cat~num, 
             data = pair, 
             method = 'multinom',
             trControl = trainControl(method = "cv", number = 5))
