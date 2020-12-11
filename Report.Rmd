@@ -83,10 +83,10 @@ train.full <- cbind(trainNum[-outliers,],trainCat[-outliers,], Y)
 ```{r}
 # 为了方便之后利用，我们将数据导出到data文件夹里，文件命名为“train.full“
 write.csv(train.full,'~/Documents/Github/ERG-Project/data/train_full.csv')
-
+ 
 # 大家可以按需进行数据预处理~
 ```
-
+ 
 
 
 
