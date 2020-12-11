@@ -136,6 +136,8 @@ preprocess.feaEngineer <- function(x,...){
   x$FireplaceQu[is.na(x$FireplaceQu)] = 0
   x$FireplaceQu <- as.numeric(x$FireplaceQu)
   
+  x <- x[,-which(colnames(x)=="GrLivArea")]
+  
   return(x)
 }
 

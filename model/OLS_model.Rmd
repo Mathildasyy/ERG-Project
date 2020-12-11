@@ -10,6 +10,80 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-train <- read.csv('')
-
+source('~/Documents/Github/ERG-Project/preprocessing/preprocess.R')
+train <- read.csv('~/Documents/Github/ERG-Project/data/train_full2.csv')[,-1] 
+# Y <- train[,ncol(train)]
+# train <- train[,-ncol(train)]
 ```
+
+
+```{r}
+library(glmnet)
+library(boot)
+# train.index = sample(1:nrow(train), 0.7*nrow(train))
+# data.train = train[train.index,]
+# Y.train = Y[train.index]
+#data.train = cbind(data.train, Y.train)
+train2 = train[-c(384,313,725,1072,1140),]
+glm.fit <- glm(Y~., data = train2)
+set.seed(1)
+cv.error <- cv.glm(train2, glm.fit, K=10)$delta[1]
+lm.RMSE <- sqrt(cv.error) # 0.1325428
+```
+
+```{r}
+library(leaps)
+regfit.forward = regsubsets(Y~.,data = train, nvmax = 47, method = "forward")
+reg.summary <- summary(regfit.full)
+
+plot(reg.summary$cp, xlab = 'Number of Variables', ylab = 'Cp', type = 'l')
+min = which.min(reg.summary$cp)
+points(min, reg.summary$cp[min], col =1, cex =2, pch = 20)
+min
+coef(regfit.forward, min)
+
+forward.RMSE <- sqrt(reg.summary$rss[min]/nrow(train)) # 0.1191135
+```
+
+```{r}
+library(caret)
+fitControl <- trainControl(method = 'repeatedcv',
+                           number = 10,
+                           repeats = 10)
+
+set.seed(1)
+lmFit <- train(Y~., data = train,
+               method = 'BstLm',
+               trControl = fitControl)
+BoostLm.RMSE <- lmFit$results$RMSE[3] # 0.1366453
+```
+
+
+```{r}
+# fitControl <- trainControl(method = 'repeatedcv',
+#                            number = 10,
+#                            repeats = 10)
+# lmFit <- train(Y~., data = train,
+#                method = '',
+#                trControl = fitControl)
+# lmFit
+```
+
+```{r}
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 10,
+                           ## repeated ten times
+                           repeats = 10)
+
+set.seed(1)
+L2Fit <- train(Y ~ ., data = train, 
+                 method = "glmnet", 
+                 trControl = fitControl)
+
+L2.RMSE <- L2Fit$results$RMSE[5]
+```
+
+
+
+
