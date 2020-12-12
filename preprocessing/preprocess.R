@@ -233,9 +233,9 @@ preprocess.corCat2Cat <-function(x, index, remove = 5,...){
     index_c = append(index_c, mean(cramer_ma[,i]))
   }
   sort_c = sort(index_c, index.return = T, decreasing = T)
-  remainCat <- index[-c(sort_c$ix[1:remove])]
+  remainCat <- index[-c(sort_c$ix[2:remove+1])]
   print('Preprocess: Correlation between categorical features')
-  print(paste('Features removed:',names(x)[index[c(sort_c$ix[1:remove])]]))
+  print(paste('Features removed:',names(x)[index[c(sort_c$ix[2:remove+1])]]))
   return(x[,remainCat]) # return the dataframe
 }
 

@@ -1,0 +1,96 @@
+---
+title: "Model"
+author: "Sun Yan, He Shuqing, Han Yi, Zhao Qianfan"
+date: "12/12/2020"
+output: pdf_document
+---
+
+```{r}
+train <- read.csv('~/Documents/Github/ERG-Project/data/train_full2.csv')[,-1] 
+```
+
+
+```{r}
+library(leaps)
+library(ranger)
+library(e1071)
+library(glmnet)
+library(boot)
+
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 10,
+                           ## repeated ten times
+                           repeats = 10)
+
+# 1. Forward selection
+model.fwd <- function(x){
+  x1 <- model.matrix(Y~., data = x)
+  regfit.forward = regsubsets(Y~.,data = x, nvmax = 47, method = "forward")
+  reg.summary <- summary(regfit.forward)
+  min = which.min(reg.summary$cp)
+  pred <- x1[,names(coef(regfit.forward, min))]%*%coef(regfit.forward, min)
+  return(pred)
+}
+
+# 2. Principal Component Regression
+set.seed(1)
+cv_model_pcr <- train(
+  Y ~ ., 
+  data = train, 
+  method = "pcr",
+  trControl = fitControl,
+  tuneLength = 100
+  )
+
+# 3. Boosting Linear Model
+set.seed(1)
+BstlmFit <- train(Y~., data = train,
+               method = 'BstLm',
+               trControl = fitControl)
+
+# 4. Lasso Regression
+set.seed(1)
+L2Fit <- train(Y ~ ., data = train, 
+                 method = "glmnet", 
+                 trControl = fitControl)
+
+# 5. Random Forest Regression
+set.seed(1)
+tuned_randomforest_model <- ranger(
+    formula         = Y ~ ., 
+    data            = train, 
+    num.trees       = 1000,
+    mtry            = 20,
+    min.node.size   = 3,
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+
+
+# 6. SVR
+for (i in 1:length(train_svm)){
+  if (class(train_svm[,i]) == "character"){
+    train_svm[,i] = as.factor(train_svm[,i])
+  }
+}
+set.seed(1)
+tc <- tune.control(cross = 10)
+obj_1 <- tune(svm, Y~., kernal = "linear", data = train_svm, ranges = list(gamma = 2^(-2:2), cost = 2^(2:4)), tunecontrol = tc)
+
+```
+
+
+```{r}
+
+pred_fwd <- model.fwd(train)  # 0.1191135 0.3
+pred_pcr <- predict(cv_model_pcr$finalModel,train) # 0.1279845 0.2
+pred_bstlm <- predict(BstlmFit,train) # 0.1366453 0.1
+pre_L2Fit <- predict(L2Fit,train) # 0.1277953 0.2
+pred_ranger <- predict(tuned_randomforest_model, train) # 0.1376053 0.1
+pred_svr <- predict(obj_1$best.model, train) # 0.13454717 0.1
+
+pred <- 0.3*pred_fwd + 0.2*pred_pcr + 0.1*pred_bstlm + 0.2*pre_L2Fit + 0.1*pred_ranger + 0.1*pred.svr
+
+sqrt(mean((pred - train$Y)^2))
+```

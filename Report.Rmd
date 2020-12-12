@@ -28,6 +28,9 @@ train <- train[,-ncol(train)]
 ```{r}
 # preprocess.fixNA的输入：目标特征集；
 #                   输出：依照不同分类填补后的特征集
+train <- preprocess.feaEngineer(train)
+
+
 train <- preprocess.fixNA(train)  # Fix the NA problems 
 
 #Check the frequency of NA in each column
