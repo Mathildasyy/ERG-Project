@@ -9,10 +9,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r warning=FALSE}
 library(randomForest)
 library(ranger)
 library(ggplot2)
+library(dplyr)
+library(broom)
 
 train <- read.csv('~/Documents/Github/ERG-Project/data/train_full2.csv')[,-1] # delete the ID column
 
@@ -57,7 +59,7 @@ for(i in 1:nrow(hyper_grid)) {
     num.trees       = 1000,
     mtry            = hyper_grid$mtry[i],
     min.node.size   = hyper_grid$node_size[i],
-    sample.fraction = hyper_grid$sampe_size[i],
+    sample.fraction = hyper_grid$sample_size[i],
     seed            = 42
   )
   
@@ -108,8 +110,16 @@ optimal_ranger$variable.importance %>%
 
 ```{r}
 # 最后的prediction语句：
-
-# pred_ranger <- predict(optimal_ranger, test)
+tuned_randomforest_model <- ranger(
+    formula         = Y ~ ., 
+    data            = train, 
+    num.trees       = 1000,
+    mtry            = 20,
+    min.node.size   = 3,
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+# pred_ranger <- predict(tuned_randomforest_model, test)
 # head(pred_ranger$predictions)
 ```
 
