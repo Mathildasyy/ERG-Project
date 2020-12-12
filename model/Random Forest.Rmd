@@ -29,7 +29,7 @@ plot(model_randomforest)
 ```{r}
 # 以上是用randomForest函数做的简单模型，除了把树的数量由默认的500增大到了1000以外，其他参数都没有调。
 # 下面开始调节参数。具体调节以下三个参数。
-#（由上图可以看到，树的数量在500到1000的阶段已经非常稳定了，因此树的数量这个参数就不调了，直接设置成1000）
+#（由之前的图片可以看到，树的数量在500到1000的阶段已经非常稳定了，因此树的数量这个参数就不调了，直接设置成1000）
 
 # 1）mtry：每一次split的时候选取的特征数量。randomForest函数在regression   problem上的默认值是特征值数量除以3，因此这边的默认值是47/3=15.
 
@@ -110,6 +110,7 @@ optimal_ranger$variable.importance %>%
 
 ```{r}
 # 最后的prediction语句：
+set.seed(1)
 tuned_randomforest_model <- ranger(
     formula         = Y ~ ., 
     data            = train, 
@@ -119,6 +120,8 @@ tuned_randomforest_model <- ranger(
     sample.fraction = .8,
     importance      = 'impurity'
   )
+sqrt(tuned_randomforest_model$prediction.error)
+
 # pred_ranger <- predict(tuned_randomforest_model, test)
 # head(pred_ranger$predictions)
 ```
