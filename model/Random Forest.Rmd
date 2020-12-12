@@ -1,0 +1,115 @@
+---
+title: "Random Forest"
+author: "Zhao Qianfan"
+date: "12/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(randomForest)
+library(ranger)
+library(ggplot2)
+
+train <- read.csv('~/Documents/Github/ERG-Project/data/train_full2.csv')[,-1] # delete the ID column
+
+set.seed(42)
+model_randomforest <- randomForest(Y~., data=train, ntree=1000)
+model_randomforest
+```
+```{r}
+plot(model_randomforest)
+```
+
+```{r}
+# 以上是用randomForest函数做的简单模型，除了把树的数量由默认的500增大到了1000以外，其他参数都没有调。
+# 下面开始调节参数。具体调节以下三个参数。
+#（由上图可以看到，树的数量在500到1000的阶段已经非常稳定了，因此树的数量这个参数就不调了，直接设置成1000）
+
+# 1）mtry：每一次split的时候选取的特征数量。randomForest函数在regression   problem上的默认值是特征值数量除以3，因此这边的默认值是47/3=15.
+
+# 2) nodesize：建每一棵树的时候终止的标志。当叶子的数量达到这个nodesize的时候，树就不往下建了。nodesize越小，树就越深，bias越低，variance越高。
+
+# 3) sample size：bootstrap的时候的sample size. 一般设置成63.25%，在60%到80%之间调节。
+
+# 我们用所谓的“hyperparameter grid search”搜寻最佳的参数组合。randomForest函数在计算量比较大的时候速度比较慢，因此采用ranger函数构建random forest. 
+
+hyper_grid <- expand.grid(
+  mtry       = seq(10, 20, by = 2), 
+  node_size  = seq(3, 9, by = 2),
+  sample_size = c(.55, .632, .70, .80),
+  OOB_RMSE   = 0
+)
+
+# total number of combinations
+nrow(hyper_grid)
+## [1] 96 总共有96种参数组合，我们就在这96种组合中搜索。
+
+for(i in 1:nrow(hyper_grid)) {
+  
+  # train model
+  model <- ranger(
+    formula         = Y ~ ., 
+    data            = train, 
+    num.trees       = 1000,
+    mtry            = hyper_grid$mtry[i],
+    min.node.size   = hyper_grid$node_size[i],
+    sample.fraction = hyper_grid$sampe_size[i],
+    seed            = 42
+  )
+  
+  # add OOB error to grid
+  hyper_grid$OOB_RMSE[i] <- sqrt(model$prediction.error)
+}
+
+hyper_grid %>% 
+  dplyr::arrange(OOB_RMSE) %>%
+  head(10)
+```
+
+```{r}
+# 以上是排名前10的最佳参数组合，以此为参考，我们把mtry调成20，把node_size调成3，把sample_size调成80%. 
+# 下面看看总体的RMSE分布情况。
+
+OOB_RMSE <- vector(mode = "numeric", length = 100)
+
+for(i in seq_along(OOB_RMSE)) {
+
+  optimal_ranger <- ranger(
+    formula         = Y ~ ., 
+    data            = train, 
+    num.trees       = 1000,
+    mtry            = 20,
+    min.node.size   = 3,
+    sample.fraction = .8,
+    importance      = 'impurity'
+  )
+  
+  OOB_RMSE[i] <- sqrt(optimal_ranger$prediction.error)
+}
+
+hist(OOB_RMSE, breaks = 20)
+```
+```{r}
+# 用variable importance measure看一下各个特征值的重要性
+
+optimal_ranger$variable.importance %>% 
+  tidy() %>%
+  dplyr::arrange(desc(x)) %>%
+  dplyr::top_n(25) %>%
+  ggplot(aes(reorder(names, x), x)) +
+  geom_col() +
+  coord_flip() +
+  ggtitle("Top 25 important variables")
+```
+
+```{r}
+# 最后的prediction语句：
+
+# pred_ranger <- predict(optimal_ranger, test)
+# head(pred_ranger$predictions)
+```
+
