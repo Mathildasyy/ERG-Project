@@ -28,11 +28,11 @@ preprocess.feaEngineer <- function(x,...){
   x$GarageCond[is.na(x$GarageCond)] = 0
   x$GarageCond <- as.numeric(x$GarageCond)
   
-  x$GarageQual <- x$GarageQual + x$GarageCond
+  x$GarageQual <- x$GarageQual + x$GarageCond # 1
   x <- x[,-which(colnames(x)=="GarageCond")]
   
   # 房屋整体质量+状态
-  x$OverallQual <-x$OverallQual + x$OverallCond
+  x$OverallQual <-x$OverallQual + x$OverallCond #2
   x <- x[,-which(colnames(x)=="OverallCond")]
   
   # 外部材料的质量+状态
@@ -50,7 +50,7 @@ preprocess.feaEngineer <- function(x,...){
   x$ExterQual[x$ExterQual == 'Po'] = 1
   x$ExterQual <- as.numeric(x$ExterQual)
   
-  x$ExterQual <- x$ExterQual+x$ExterCond
+  x$ExterQual <- x$ExterQual+x$ExterCond #3
   x <- x[,-which(colnames(x)=="ExterCond")]
   
   # 地下室的质量+状态
@@ -70,7 +70,7 @@ preprocess.feaEngineer <- function(x,...){
   x$BsmtQual[is.na(x$BsmtQual) ] = 0
   x$BsmtQual <- as.numeric(x$BsmtQual)
   
-  x$BsmtQual <- x$BsmtQual+x$BsmtCond
+  x$BsmtQual <- x$BsmtQual+x$BsmtCond #4
   x <- x[,-which(colnames(x)=="BsmtCond")]
   
   # 地下室的敞开部分
@@ -136,7 +136,15 @@ preprocess.feaEngineer <- function(x,...){
   x$FireplaceQu[is.na(x$FireplaceQu)] = 0
   x$FireplaceQu <- as.numeric(x$FireplaceQu)
   
-  x <- x[,-which(colnames(x)=="GrLivArea")]
+  x <- x[,-which(colnames(x)=="GrLivArea")] # 
+  
+  # 加热系统质量
+  x$HeatingQC[x$HeatingQC == 'Ex'] = 4
+  x$HeatingQC[x$HeatingQC == 'Gd'] = 3
+  x$HeatingQC[x$HeatingQC == 'TA'] = 2
+  x$HeatingQC[x$HeatingQC == 'Fa'] = 1
+  x$HeatingQC[x$HeatingQC == 'Po'] = 0
+  x$HeatingQC <- as.numeric(x$HeatingQC)
   
   return(x)
 }
@@ -153,6 +161,8 @@ preprocess.fixNA <- function(x,...){
   x$GarageYrBlt[is.na(x$GarageYrBlt)] <- 0
   x$MasVnrType[is.na(x$MasVnrType)] <- "None"
   x$Electrical[is.na(x$Electrical)] <- "SBrkr"
+  x$MSZoning[is.na(x$MSZoning)] <- as.character(preprocess.myMode(x$MSZoning))
+  x$SaleType[is.na(x$SaleType)] <- as.character(preprocess.myMode(x$SaleType))
   
   xmodel <- preProcess(x, "knnImpute", k=38) # set k to equal to the square root of number of variables 
   x <- predict(xmodel, x)
@@ -233,9 +243,9 @@ preprocess.corCat2Cat <-function(x, index, remove = 5,...){
     index_c = append(index_c, mean(cramer_ma[,i]))
   }
   sort_c = sort(index_c, index.return = T, decreasing = T)
-  remainCat <- index[-c(sort_c$ix[2:remove+1])]
+  remainCat <- index[-c(sort_c$ix[2:6])]
   print('Preprocess: Correlation between categorical features')
-  print(paste('Features removed:',names(x)[index[c(sort_c$ix[2:remove+1])]]))
+  print(paste('Features removed:',names(x)[index[c(sort_c$ix[2:6])]]))
   return(x[,remainCat]) # return the dataframe
 }
 

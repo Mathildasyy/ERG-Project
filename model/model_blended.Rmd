@@ -6,7 +6,12 @@ output: pdf_document
 ---
 
 ```{r}
-train <- read.csv('~/Documents/Github/ERG-Project/data/train_full2.csv')[,-1] 
+train <- read.csv('~/Documents/Github/ERG-Project/data/train_full.csv')[,-1] 
+# set.seed(205)
+# train.index <- sample(1:nrow(data), 0.7*nrow(data))
+# train <- data[train.index, ]
+# test.index <- (-train.index)
+# test <- data[test.index,]
 ```
 
 
@@ -23,13 +28,15 @@ fitControl <- trainControl(## 10-fold CV
                            ## repeated ten times
                            repeats = 10)
 
+regfit.forward = regsubsets(Y~.,data = train, nvmax = 47, method = "forward")
+reg.summary <- summary(regfit.forward)
+min = which.min(reg.summary$cp)
+coef <- coef(regfit.forward, min)
+
 # 1. Forward selection
 model.fwd <- function(x){
-  x1 <- model.matrix(Y~., data = x)
-  regfit.forward = regsubsets(Y~.,data = x, nvmax = 47, method = "forward")
-  reg.summary <- summary(regfit.forward)
-  min = which.min(reg.summary$cp)
-  pred <- x1[,names(coef(regfit.forward, min))]%*%coef(regfit.forward, min)
+  matrix <- model.matrix(Y~., data =x)[,names(coef)]
+  pred <- matrix%*%coef
   return(pred)
 }
 
@@ -67,30 +74,100 @@ tuned_randomforest_model <- ranger(
     importance      = 'impurity'
   )
 
-
+```
+```{r}
 # 6. SVR
-for (i in 1:length(train_svm)){
-  if (class(train_svm[,i]) == "character"){
-    train_svm[,i] = as.factor(train_svm[,i])
-  }
-}
-set.seed(1)
-tc <- tune.control(cross = 10)
-obj_1 <- tune(svm, Y~., kernal = "linear", data = train_svm, ranges = list(gamma = 2^(-2:2), cost = 2^(2:4)), tunecontrol = tc)
+# for (i in 1:length(train)){
+#   if (class(train[,i]) == "character"){
+#     train[,i] = as.factor(train[,i])
+#   }
+# }
+# set.seed(1)
+# tc <- tune.control(cross = 10)
+# obj_1 <- tune(svm, Y~., kernal = "linear", data = train, ranges = list(gamma = 2^(-2:2), cost = 2^(2:4)), tunecontrol = tc)
 
 ```
 
 
 ```{r}
-
-pred_fwd <- model.fwd(train)  # 0.1191135 0.3
-pred_pcr <- predict(cv_model_pcr$finalModel,train) # 0.1279845 0.2
-pred_bstlm <- predict(BstlmFit,train) # 0.1366453 0.1
-pre_L2Fit <- predict(L2Fit,train) # 0.1277953 0.2
-pred_ranger <- predict(tuned_randomforest_model, train) # 0.1376053 0.1
-pred_svr <- predict(obj_1$best.model, train) # 0.13454717 0.1
-
-pred <- 0.3*pred_fwd + 0.2*pred_pcr + 0.1*pred_bstlm + 0.2*pre_L2Fit + 0.1*pred_ranger + 0.1*pred.svr
-
-sqrt(mean((pred - train$Y)^2))
+RMSLE <- function(data){
+  pred_pcr <- predict(cv_model_pcr, data) # 0.1279845 
+  pred_fwd <- as.numeric(model.fwd(data))  # 0.1191135 
+  pred_bstlm <- predict(BstlmFit,data) # 0.1366453 
+  pre_L2Fit <- as.numeric(predict(L2Fit,data)) # 0.1277953
+  pred_ranger <- predict(tuned_randomforest_model, data)$predictions # 0.1376053 
+  #pred_svr <- as.numeric(predict(obj_1$best.model, data)) # 0.13454717
+  
+  prediction <- cbind(pred_fwd, pred_bstlm, pre_L2Fit, pred_ranger, pred_pcr)
+  coefficient <- c(0.4,0.0025,0.1,0.25,0.22)
+  rmse <- function(x){
+    pred <-  prediction %*% x
+    return(sqrt(mean((pred - data$Y)^2)))
+  }
+  coef <- optim(coefficient, rmse)$par
+  pred <-  prediction %*% coef
+  print(sqrt(mean((pred - data$Y)^2)))
+  return(coef)
+}
 ```
+
+
+```{r}
+coef.train <- RMSLE(train)
+#RMSLE(test)
+
+# set.seed(2050)
+# [1] 0.05716693
+# [1] 0.1327926
+
+```
+
+
+```{r}
+# 开始赌博！！
+source('~/Documents/Github/ERG-Project/preprocessing/preprocess.R')
+```
+
+```{r}
+Test <- read.csv('~/Documents/Github/ERG-Project/data/test.csv')[,-1]
+
+Test <- preprocess.feaEngineer(Test)
+
+Test <- preprocess.fixNA(Test)  # Fix the NA problems 
+
+# test.2 <- preprocess.nzv(test,show = 10)
+# 
+# num.feature <- preprocess.getNum(test.2)
+# 
+# 
+# cat.feature <- preprocess.getCat(test.2)
+# 
+# testNum <- preprocess.corNum2Num(test.2,num.feature)
+# 
+# testCat <- preprocess.corCat2Cat(test.2,cat.feature)
+
+remainFeature <- names(Test) %in% names(train)[-ncol(train)]
+
+test2 <- Test[,remainFeature]
+
+```
+
+```{r}
+Prediction <- function(data, coef){
+  pred_pcr <- predict(cv_model_pcr, data) # 0.1279845 
+  pred_fwd <- as.numeric(model.fwd(data))  # 0.1191135 
+  pred_bstlm <- predict(BstlmFit,data) # 0.1366453 
+  pre_L2Fit <- as.numeric(predict(L2Fit,data)) # 0.1277953
+  pred_ranger <- predict(tuned_randomforest_model, data)$predictions # 0.1376053 
+  #pred_svr <- as.numeric(predict(obj_1$best.model, data)) # 0.13454717
+  
+  prediction <- cbind(pred_fwd, pred_bstlm, pre_L2Fit, pred_ranger, pred_pcr)
+  pred <-  prediction %*% coef
+  return(pred)
+}
+
+test3 <- cbind(test2, data.frame(Y= rep(0,nrow(test2))))
+Result <- data.frame(SalePrice <- expm1(Prediction(test3, coef.train)))
+write.csv(Result,'~/Documents/Github/ERG-Project/Result.csv')
+```
+
