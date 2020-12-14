@@ -1,0 +1,26 @@
+---
+title: "SVR model"
+author: "Han Yi"
+date: "12/10/2020"
+output: html_document
+---
+
+```{r}
+train_ori = read.csv("train.csv")
+train = read.csv("train_full.csv")
+library(e1071)
+train_svm = train[,-1]
+
+for (i in 1:length(train_svm)){
+  if (class(train_svm[,i]) == "character"){
+    train_svm[,i] = as.factor(train_svm[,i])
+  } 
+}
+
+tc <- tune.control(cross = 10)
+obj_1 = tune(svm, Y~., kernal = "linear", data = train_svm, ranges = list(gamma = 2^(-1:1), cost = 2^(2:4)), tunecontrol = tc)
+obj_2 = tune(svm, Y~., kernal = "polynomial", data = train_svm, ranges = list(gamma = 2^(-1:1), cost = 2^(2:4)), tunecontrol = tc)
+obj_3 = tune(svm, Y~., kernal = "kernal", data = train_svm, ranges = list(gamma = 2^(-1:1), cost = 2^(2:4)), tunecontrol = tc)
+```
+
+obj_1 produce lowest RMSE 0.157535 
