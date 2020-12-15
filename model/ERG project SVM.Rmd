@@ -20,7 +20,7 @@ for (i in 1:length(train_svm)){
 tc <- tune.control(cross = 10)
 obj_1 = tune(svm, Y~., kernal = "linear", data = train_svm, ranges = list(gamma = 2^(-1:1), cost = 2^(2:4)), tunecontrol = tc)
 obj_2 = tune(svm, Y~., kernal = "polynomial", data = train_svm, ranges = list(gamma = 2^(-1:1), cost = 2^(2:4)), tunecontrol = tc)
-obj_3 = tune(svm, Y~., kernal = "kernal", data = train_svm, ranges = list(gamma = 2^(-1:1), cost = 2^(2:4)), tunecontrol = tc)
+obj_3 = tune(svm, Y~., kernal = "radial", data = train_svm, ranges = list(gamma = 2^(-1:1), cost = 2^(2:4)), tunecontrol = tc)
 ```
 
 obj_1 produce lowest RMSE 0.157535 

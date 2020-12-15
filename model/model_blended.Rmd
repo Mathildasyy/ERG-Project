@@ -16,6 +16,7 @@ library(ranger)
 library(e1071)
 library(glmnet)
 library(boot)
+library(caret)
 
 fitControl <- trainControl(## 10-fold CV
                            method = "repeatedcv",
@@ -23,9 +24,9 @@ fitControl <- trainControl(## 10-fold CV
                            ## repeated ten times
                            repeats = 10)
 
-regfit.forward = regsubsets(Y~.,data = train, nvmax = 47, method = "forward")
+regfit.forward = regsubsets(Y~.,data = train, nvmax = 46, method = "forward")
 reg.summary <- summary(regfit.forward)
-min = which.min(reg.summary$cp)
+min = which.min(reg.summary$bic)
 coef <- coef(regfit.forward, min)
 
 # 1. Forward selection
@@ -34,6 +35,22 @@ model.fwd <- function(x){
   pred <- matrix%*%coef
   return(pred)
 }
+
+```
+
+```{r}
+plot(reg.summary$cp, col = 'blue3',
+     xlab = 'Index',
+     ylab = "BIC",
+     lwd = 2, type = 'l',
+     main = 'Forward Stepwise Selection model(BIC)')
+abline(v = min, lwd = 2, lty = 2, col = 'lightblue3')
+text(34, 500, '32')
+```
+
+```{r}
+reg.index <- names(sort(colSums(ifelse(reg.summary$outmat[1:32,] == '*',1,0)), decreasing = T)[1:32])
+names(reg.summary$outmat[32,reg.index]) # 以下特征依次显著
 ```
 
 ```{r}
@@ -44,25 +61,172 @@ cv_model_pcr <- train(
   data = train, 
   method = "pcr",
   trControl = fitControl,
-  tuneLength = 10
+  tuneLength = 100
   )
 ```
 
 ```{r}
-# 3. Boosting Linear Model
-set.seed(1)
-BstlmFit <- train(Y~., data = train,
-               method = 'BstLm',
-               trControl = fitControl)
+plot(cv_model_pcr$results$ncomp,
+     cv_model_pcr$results$RMSE, col = 'blue3',
+     xlab = 'Number of Principal Components',
+     ylab = 'RMSE',
+     lwd = 2, type = 'l',
+     main = 'Optimal PCR model:64 PCs by Cross-Validation')
+abline(v = 64, lwd = 2, lty = 2, col = 'lightblue3')
+
+pcrImp <- varImp(cv_model_pcr, scale = FALSE)
+plot(pcrImp, top = 20, main = 'PCR: Variable Importance') 
+```
+
+```{r}
+# Boosting Linear Model
+# set.seed(1)
+# BstlmFit <- train(Y~., data = train,
+#                method = 'BstLm',
+#                trControl = fitControl,
+#                tuneGrid = expand.grid(mstop = 1:160, nu = 0.1)
+#               )
+
+## mstop: 150 (Boosting Iterations) (151 terminal nodes)
+## nu: 0.1 (Shrinkage)
+
+# plot(BstlmFit, main = 'Boosted Linear Model')
+# BstlmImp <- varImp(BstlmFit, scale = FALSE)
+# plot(BstlmImp, top = 20, main = 'Boosted Linear Model: Variable Improtance')
+```
+
+```{r}
+# 3. GAM
+library(gam)
+gam.1 <- gam(Y~ Neighborhood*MSSubClass+ns(YearBuilt,3)+bs(GarageArea,4)+bs(GarageArea,4)+
+               bs(BsmtQual,4)+KitchenQual+bs(OverallQual,3)+bs(TotalBsmtSF,3)+
+               ns(X1stFlrSF,3)+ns(ExterQual,3)+bs(YearRemodAdd,6)+bs(OpenPorchSF,4)+
+               ns(FullBath,3)+ ns(WoodDeckSF,3)+GarageType+
+               Fireplaces*HeatingQC+bs(X2ndFlrSF,5), 
+             data = train)
+sqrt(mean((train$Y - predict.Gam(gam.1))^2)) # training RMSE: 0.1180877
+```
+
+```{r}
+# GAM内部模型的构建需要我们对各个feature与response Y之间的关系进行查看
+# 此处因为我们先前对PCR和Bstlm做VIP后，发现他们的前二十个一致，于是便选取这些features
+# 采用geom_smooth(), 方便我们直观地在bs(),ns()间找取合适的模型和对应df参数
+# 不确定时，通过仅改变其参数，观察train_RMSE变动情况
+# 若减小微弱，则不提高复杂度
+library(gridExtra)
+g1 <- ggplot(train,aes(Neighborhood, Y))+
+  geom_point(colour = 'grey50')
+
+g2 <- ggplot(train,aes(YearBuilt, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g3<-ggplot(train,aes(GarageArea, Y))+
+  geom_point( colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+  
+g4<-ggplot(train, aes(BsmtQual, Y))+
+  geom_point( colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,4), se = T, size = 1, colour = 'red')
+
+g5<-ggplot(train, aes(KitchenQual, Y))+
+  geom_point( colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~x, se = T, size = 1, colour = 'red')
+
+g6<-ggplot(train,aes(OverallQual, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,3), se = T, size = 1, colour = 'red')
+
+g7<-ggplot(train,aes(TotalBsmtSF, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,3), se = T, size = 1, colour = 'red')
+
+g8<-ggplot(train,aes(X1stFlrSF, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+  
+g9<-ggplot(train,aes(ExterQual, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g10<-ggplot(train,aes(YearRemodAdd, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,5), se = T, size = 1, colour = 'red')
+
+g11<-ggplot(train,aes(FullBath, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g12<-ggplot(train,aes(WoodDeckSF, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g13<-ggplot(train,aes(MSSubClass, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g14<-ggplot(train,aes(GarageType, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g15<-ggplot(train,aes(Fireplaces, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,2), se = T, size = 1, colour = 'red')
+
+g16<-ggplot(train,aes(HeatingQC, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~x, se = T, size = 1, colour = 'red')
+
+g17<-ggplot(train,aes(X2ndFlrSF, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,6), se = T, size = 1, colour = 'red')
+```
+
+```{r}
+# 判断主要特征的transformation
+grid.arrange(g2, g3, g4, g5, nrow = 2, ncol =2)
+grid.arrange(g6, g7, g8, g9, nrow = 2, ncol =2)
+grid.arrange(g10, g11, g12, g15, nrow = 2, ncol =2)
+grid.arrange(g16, g17,nrow = 2, ncol =2)
+```
+
+```{r}
+# 同时，我们也要考虑到其中的interaction因素
+
+# 判断interaction 1
+# 我们通过画interaction.plot()发现: 
+# MSSubClass, Neighborhood 这俩者有严重的interaction，
+# 不同neighborhood之间的坡度会有很大差异
+with(train,{
+  interaction.plot(MSSubClass,Neighborhood,Y,
+                   lwd = 2, lty= 1, col=1:20, legend = F,
+                   main = 'Interaction between MSSubClass and Neignborhood')
+})
+```
+
+```{r}
+# 判断interaction 2
+
+# 对于拥有不同Fireplaces的HeatingQC，对Y做线性回归时在直观上来看也有坡度差异
+with(train,{
+  interaction.plot(HeatingQC,Fireplaces,Y,
+                   lwd = 2, lty= 1, col=1:20, legend = F,
+                   main = 'Interaction between Fireplaces and HeatingQC')
+})
 ```
 
 ```{r}
 # 4. Lasso Regression
 set.seed(1)
-L2Fit <- train(Y ~ ., data = train, 
+L1Fit <- train(Y ~ ., data = train, 
                  method = "glmnet", 
                  trControl = fitControl) 
 ```
+
+```{r}
+plot(L1Fit$bestTune, pch = 20, col = 'Blue')
+```
+
 
 ```{r}
 # 5. Random Forest Regression
@@ -76,44 +240,60 @@ tuned_randomforest_model <- ranger(
     sample.fraction = .8,
     importance      = 'impurity'
   )
+
 ```
 
+
 ```{r}
-# # 6. SVR
-# train_control <- trainControl(method="repeatedcv", number=5, repeats=3)
-# svm1 <- train(Y ~., data = train, method = "svmLinear", svr_eps = 0.1, trControl = train_control,verbose=FALSE)
-# fit = svm(Y ~., data = train, method = "svmLinear", svr_eps = 0.1, cost = 1, epsilon = 0.1)
+library(ModelMetrics)
+# 6. SVR
+train_control <- trainControl(method="repeatedcv", number=5, repeats=3)
+svm1 <- train(Y ~., data = train, method = "svmLinear", svr_eps = 0.1, trControl = train_control,verbose=FALSE)
+fit = svm(Y ~., data = train, method = "svmLinear", svr_eps = 0.1, cost = 1, epsilon = 0.1)
 pred_svr_train = read.csv('~/Documents/Github/ERG-Project/data/svmresults.csv')
-pred_svr_test = pred_svr_train = read.csv('~/Documents/Github/ERG-Project/data/svmresults.csv')
+# pred_svr_test = pred_svr_train = read.csv('~/Documents/Github/ERG-Project/data/svmresults.csv')
+sqrt(mean((train$Y-pred_svr_train$x)^2)) # 0.1008077
+
 ```
 
 
 ```{r}
 Prediction <- function(data){
-  pred_pcr <- predict(cv_model_pcr, data) # 0.1279845 
-  pred_fwd <- as.numeric(model.fwd(data))  # 0.1191135 
-  pred_bstlm <- predict(BstlmFit,data) # 0.1366453 
-  pred_L2Fit <- as.numeric(predict(L2Fit,data)) # 0.1277953
-  pred_ranger <- predict(tuned_randomforest_model, data)$predictions # 0.1376053 
-  prediction <- cbind(pred_fwd, pred_bstlm, pred_L2Fit, pred_ranger, pred_pcr)
+  pred_pcr <- predict(cv_model_pcr, data) 
+  pred_fwd <- as.numeric(model.fwd(data))  
+  pred_gam <- predict.Gam(gam.1, data)
+  #pred_bstlm <- predict(BstlmFit,data)
+  pred_L1Fit <- as.numeric(predict(L1Fit,data)) 
+  pred_ranger <- predict(tuned_randomforest_model, data)$predictions 
+  prediction <- cbind(pred_fwd, pred_gam, pred_L1Fit, pred_ranger, pred_pcr)
   return(prediction)
 }
 
-prediction <- cbind(Prediction(train), pred_svr_train)
-```
+prediction <- Prediction(train)
+#prediction <- cbind(Prediction(train), pred_svr_train)
 
+## Training RMSLE
+sqrt(mean((train$Y - prediction[,1])^2)) # fwd: 0.1145312; 0.1180877
+sqrt(mean((train$Y - prediction[,2])^2)) # bstlm: 0.1311058; / GAM: 0.1180877
+sqrt(mean((train$Y - prediction[,3])^2)) # L1: 0.1176129
+sqrt(mean((train$Y - prediction[,4])^2)) # ranger: 0.0643161
+sqrt(mean((train$Y - prediction[,5])^2)) # PCR 0.1194666
+
+```
 
 ```{r}
 Train = train
 coef.train <- data.frame()
-coefficient <- c(1,1,1,1,1,1)
+coefficient <- rep(1/5,5)
+#coefficient <- c(1,1,1,1,1,1)
 for (i in 0:9){
+  set.seed(10)
   index.subtract <- sample(1:nrow(Train),1/(10-i)*nrow(Train))
   train.i <- train[index.subtract,]
   
   RMSE <- function(x){
     pred <-  prediction[index.subtract,] %*% x
-    return(sqrt(mean((train.i$Y - pred)^2)))
+    return(sqrt(mean(train.i$Y-pred)^2))
   }
   coef.train <- rbind(coef.train, optim(coefficient, RMSE)$par)
   Train <- train[-index.subtract,]
@@ -124,9 +304,7 @@ for (i in 0:9){
 ```{r}
 # 开始赌博！！
 source('~/Documents/Github/ERG-Project/preprocessing/preprocess.R')
-```
 
-```{r}
 Test <- read.csv('~/Documents/Github/ERG-Project/data/test.csv')[,-1]
 
 Test <- preprocess.feaEngineer(Test)
@@ -136,21 +314,23 @@ Test <- preprocess.fixNA(Test)  # Fix the NA problems
 remainFeature <- names(Test) %in% names(train)[-ncol(train)]
 
 test2 <- Test[,remainFeature]
-write.csv(test2, '~/Documents/Github/ERG-Project/data/test2.csv')
-```
 
-```{r}
 test3 <- cbind(test2, data.frame(Y= rep(0,nrow(test2))))
-write.csv(test3, '~/Documents/Github/ERG-Project/data/test3.csv')
+#write.csv(test3, '~/Documents/Github/ERG-Project/data/test3.csv')
 ```
 
 ```{r}
-prediction.test <- cbind(Prediction(test3),pred_svr_test)
+prediction.test <- Prediction(test3)
+#prediction.test <- cbind(Prediction(test3),pred_svr_test)
 id <- seq(1,nrow(Test))+1460
 Result <- data.frame(Id = id,SalePrice = expm1(prediction.test %*% colMeans(coef.train)))
+sqrt(mean((train$Y-prediction.test %*% colMeans(coef.train))^2))
 ```
 
 ```{r}
-write.csv(Result,'~/Documents/Github/ERG-Project/Result003.csv', row.names = F)
+write.csv(Result,'~/Documents/Github/ERG-Project/result/Result09.csv', row.names = F)
 ```
+
+
+07: set.seed(10)
 

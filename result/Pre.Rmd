@@ -1,5 +1,5 @@
 ---
-title: "Report"
+title: "Pre"
 author: "Sun Yan"
 date: "12/7/2020"
 output: pdf_document
@@ -58,6 +58,10 @@ trainNum <- preprocess.corNum2Num(train.2,num.feature)
 #                         输出：除去5个高相关性特征后的特征集(方法：Cramer's V)
 trainCat <- preprocess.corCat2Cat(train.2,cat.feature)
 ```
+```{r}
+pca <- prcomp(trainNum, scale = T)
+plot(pca$sdev^2/sum(pca$sdev^2), xlab = 'Principal Component', ylab = 'Proportion of Vairance Explained', type ='h', col = 'darkblue')
+```
 
 ```{r}
 # 通过PCA降维分析甄别异常值
@@ -86,9 +90,11 @@ train.full <- cbind(trainNum[-outliers,],trainCat[-outliers,], Y)
 ```{r}
 # 为了方便之后利用，我们将数据导出到data文件夹里，文件命名为“train.full“
 write.csv(train.full,'~/Documents/Github/ERG-Project/data/train_full.csv')
- 
 # 大家可以按需进行数据预处理~
 ```
+
+
+
  
 
 
