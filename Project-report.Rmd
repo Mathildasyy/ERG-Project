@@ -1,0 +1,484 @@
+---
+title: 'ERG Group Project: House Prices Prediction'
+author: "Sun Yan 119020045 He Shuqing 119010096 Han Yi 119020013 Zhao Qianfan 119020562"
+date: "December 23, 2020"
+abstract: "House prices can be affected by many factors from type of utilities available, style of dwelling to rating of basement finished area and fireplace quality. Our goal is to predict the likely house prices according to some potential influencing factors. After analyzing all of the explanatory data, we conducted feature engineering by combining and transforming variables. Next, we  imputed omitted variables, fixed skewness of independent and dependent variables, removed features high-correlated or with near-zero variance and deleted outliers. In the process of model building, we tried different kinds of regression models: OLS-based, tree-based and distance-based. Finally we selected six models, which are forward step-wise selection model, PCR, Ridge&Lasso, GAM, Random Forest and SVM. To obtain an excellent performance, we decided to ensemble all the mdoels by assigning optimal weights to each one. Eventually, we used the well-tuned ensembled model to predict the test data and obtained a RMSLE of 0.12340, which ranked 18% on Kaggle (by December 2020)."
+output:
+  bookdown::pdf_document2:
+    latex_engine: xelatex
+    toc: FALSE
+    number_sections: FALSE
+bibliography: Collection.bib
+link-citations: TRUE
+linkcolor: Cerulean
+urlcolor: Cerulean
+citecolor: Cerulean
+fontsize: 10pt
+---
+
+```{r set-options, include = FALSE}
+# setting some default chunk options
+# figures will be centered
+# code will not be displayed unless `echo = TRUE` is set for a chunk
+# messages are suppressed
+# warnings are suppressed
+knitr::opts_chunk$set(fig.align = "center", echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+```{r load-packages, FALSE}
+# all packages needed should be loaded in this chunk
+library(knitr)
+library(kableExtra)
+library(leaps)
+library(caret)
+library(ranger)
+library(e1071)
+library(glmnet)
+library(boot)
+library(ggplot2)
+```
+
+# Introduction
+
+With a size of $9.6 trillion in 2019, the real estate market is one of the hugest market in the world (MSCI, 2019). Residential housing prices in this industry fluctuate on a day-to-day basis, providing critical information about the value of houses, as well as buyers' and sellers' sentiment. Given the dynamic nature of the real estate market, a regression model able to predict housing prices could play a significant role. The goal of this model is two-fold. First and most importantly, it should accurately predict a house's price with necessary information. Secondly, the model should generate some insights on the influential factors of housing prices; in other words, the model should reveal which characteristics of a house are mostly related to its price. With such prediction and inference capabilities, a regression model could contribute to the valuation decisions of real estate dealers and appraisers. It could also provide guidance to home owners and house builders on how to increase their houses' value.       
+
+# Materials and Methods
+
+Only part of our codes are shown here, more can refer to our github:
+[Code](https://github.com/mathildasy/ERG-Project)
+
+The codes for the preprocess part are packed into the github file "preprocessing/preprocess.R".
+
+```{r,echo = TRUE}
+source('~/Documents/Github/ERG-Project/preprocessing/preprocess.R')
+train <- read.csv('~/Documents/Github/ERG-Project/data/train_full.csv')[,-1] 
+```
+
+# Data 
+
+The research built its model based on the training set of the Ames Housing Dataset available on Kaggle (2020). The Ames Housing Dataset, prepared by Dean De Cock (2011), describes the sale of 2930 residential properties in Ames, Iowa, U.S. from 2006 to 2010. It is usually considered as the most expanded and modernized version of the classic Boston Housing Dataset and was therefore chosen for this study.
+
+The training set contains 1460 observations and 79 predictors, with "Sale Price" as the response variable. Among the 79 predictors, 23 are nominal variables, 23 are ordinal, 13 discrete, and 20 continuous. 
+
+Features were divided into four categories for later manipulation.
+
+![](~/Documents/GitHub/ERG-Project/image/feature_classification.png)
+
+Based on Exploratory Data Analysis (EDA), the research conducted following preprocessing procedures.
+
+
+## Feature Engineering
+
+The dataset includes some similar features. For instance, both the predictor "Overall Quality" and "Overall Condition" depict the overall state of a house. Combining these overlapping features could tune down the dataset's noise. In light of this consideration, this study combined the feature "Overall Quality" and "Overall Condition" into a new feature. Same procedure was also applied to "Garage Quality" & "Garage Condition," "Exterior Quality" & "Exterior Condition," and "Basement Quality" & "Basement Condition."
+
+Besides combining overlapping features, the study also transformed some ordinal features into numeric features. For example, the predictor "Basement Exposure" contains four categories: "No,""Mn,""Av," and "Gd," standing for no exposure, minimum exposure, average exposure, and good exposure, respectively; the study has encoded "No" as 1, "Mn" as 2, "Av" as 3, etc. In this way, the information regarding the order of various values were transformed into forms that could be recognized by machine learning algorithms.   
+
+Part of the codes are shown:
+
+![](~/Documents/GitHub/ERG-Project/image/feature_engineering.jpg){width=50%}
+
+
+## Missing Value Imputation
+
+In the training dataset, 19 features contain "NA." However, a closer observation revealed that only 4 features ("Lot Frontage,""Masonry Veneer Type,""Masonry Veneer Area," and "Electrical") have true missing values. For the rest 15 features, "NA" simply indicates the absence of the corresponding metric. For example, an "NA" in the feature "Pool Quality" means that this house doesn't have a pool, rather than this value is missing. 
+
+The variables with missing values were:
+
+![](~/Documents/GitHub/ERG-Project/image/missing.png){width=80%}
+
+For the 4 features that truly contain missing values, the study chose to impute those missing values since 1) missing values could reduce the statistical power of the dataset and lead to models with higher bias (Kang, 2013), 2) some models couldn't work with missing values, and 3) in this case, the number of missing values is small and therefore easy to impute. For categorical missing values, the study adopted mode imputation: replace categorical missing values by the mode of the corresponding column. For numeric missing values, the study adopted KNN imputation: replace numeric missing values by the mean of the nearest K neighbors in the whole feature space. The hyperparameter K was set to be the square root of the number of observations, i.e. $K=38\approx\sqrt{1460}$ (Jonsson & Wohlin, 2004).  
+
+## Feature Scaling
+
+The data were scattered and hard to manipulate before scaling.
+
+![](~/Documents/GitHub/ERG-Project/image/scaling.jpeg){width=70%}
+
+The study applied z-score standardization to the numeric features, so that their mean became 0, and standard deviation equaled 1. The process is automatically undertaken by `preProcess()` in `Caret`.  
+
+## Fix the Skewness of the Response Variable
+
+The response variable "Sale Price" is right-skewed. 
+
+![](~/Documents/GitHub/ERG-Project/image/skew.jpeg){width=80%}
+
+To avoid volatile and biased prediction of house price, the study applied logarithmic transformation to fix the skewness. 
+
+## Delete Zero-Variance Features
+
+For some features in the training dataset, most observations are restricted to only one same value or category. These features are therefore redundant since they provide little information to the dataset while unnecessarily increase its variance. 
+
+![](~/Documents/GitHub/ERG-Project/image/variance.jpeg){width=90%}
+
+The study chose the near-zero-variance function in the Caret package to detect those redundant features. 19 features who has near zero variances were therefore removed. 
+
+## Reduce Collinearity
+
+According to the correlation matrix, some features in the dataset exhibit high collinearity, posing threats to model accuracy and interpretability. 
+
+![](~/Documents/GitHub/ERG-Project/image/correlation.jpg)
+The study focused on two types of collinearity, namely 1) the collinearity between numeric features and numeric features and 2) the collinearity between categorical features and categorical features. Instead of the default Pearson index in the Caret package, the study used the more robust Spearman index to detect the first type of collinearity. For the detection of the second type of collinearity, the Cramer's V ("Cramer's V," n.d.) index in the Caret package was used. A total of 8 features were removed in this way.       
+
+Parts of the codes are shown:
+
+![](~/Documents/GitHub/ERG-Project/image/correlation_code.jpg){width=80%}
+
+## Remove Outliers via PCA
+
+The large number of features in this dataset poses a challenge to detecting outliers. 
+
+![](~/Documents/GitHub/ERG-Project/image/PCA1.png){width=80%}
+
+Considering the impracticability of detecting outliers by each feature, the study instead applied Principle Component Analysis (PCA) to compress the feature space to two dimensions. After PCA, the study computed the index $\frac{|x - median(x)|}{mad(x)}$ of each data point, where "mad" represents Median Absolute Deviation. Data points whose indices were higher than 6 were classified as outliers and removed.  
+
+![](~/Documents/GitHub/ERG-Project/image/PCA2.png){width=80%}
+
+
+
+
+# Model
+
+## Forward Stepwise Selection
+
+Forward stepwise selection is a subset selection method of fitting linear models. Beginning with a null model, in each step it adds one variable whose inclusion gives the most statistically significant improvement of the fit and repeats this process until no more improvement occurs. The statistically significant improvement level is judged according to the RSS,adjusted R^2, Cp or BIC. Since RSS always favors the full model, it's better to choose Cp, BIC or adjusted R^2 as a criterion.
+
+Forward stepwise selection has great advantage in removing unimportant variables and fit the model according to the importance of variables in each step.
+
+The forward stepwise selection was achieved using library "leaps". The tuning parameter nvmax was set to be the original total number of variables(= 46) and served to be the maximal number of predictors to corporate in the model. The model with the minimal BIC was chosen.
+
+```{r,echo = TRUE}
+regfit.forward = regsubsets(Y~.,data = train, nvmax = 46, method = "forward")
+reg.summary <- summary(regfit.forward)
+min = which.min(reg.summary$bic)
+coef <- coef(regfit.forward, min)
+
+
+model.fwd <- function(x){
+  matrix <- model.matrix(Y~., data =x)[,names(coef)]
+  pred <- matrix%*%coef
+  return(pred)
+}
+```
+
+According to BIC, 32 variables were selected.
+```{r,echo = TRUE}
+plot(reg.summary$bic, col = 'blue3',
+     xlab = 'Index',
+     ylab = "BIC",
+     lwd = 2, type = 'l',
+     main = 'Forward Stepwise Selection model(BIC)')
+abline(v = min, lwd = 2, lty = 2, col = 'lightblue3')
+text(34, 500, '32')
+```
+
+They are
+```{r,echo = TRUE}
+reg.index <- names(sort(colSums(ifelse(reg.summary$outmat[1:32,] == '*',1,0)), decreasing = T)[1:32])
+names(reg.summary$outmat[32,reg.index]) 
+```
+
+## Lasso Regression
+
+Lasso regression is a type of linear regression using shrinkage method. It performs L1 regularization and adds a penalty term to lower the variance. Compared with simple regression model, lasso avoids overfitting of the data and also restricts the influence of predictor variables over the output variables by compressing their coefficients. Since lasso regression can shrink some coefficients to exactly 0, it can perform feature selection. As a result, the models generated from the lasso are generally easy to interpret.
+
+Lasso regression was implemented through the train() function within caret package. The tuning parameter of the lasso was selected using cross-validation method. 
+
+```{r,echo = TRUE}
+fitControl <- trainControl(## 10-fold CV
+                           method = "repeatedcv",
+                           number = 10,
+                           ## repeated ten times
+                           repeats = 10)
+
+set.seed(1)
+L2Fit <- train(Y ~ ., data = train, 
+                 method = "glmnet", 
+                 trControl = fitControl)
+```
+
+
+## Principle Component Regression
+
+Principle component regression is based on principle component analysis. Instaed of regressing the dependent variable on the explanatory variables directly, the components of the explanatory variables are used as regressors. Since principle components with higher variances are selected, pcr can exclude some of the low-variance principal components in the regression step and result in dimension reduction.
+
+The train() function in the caret package provides the method of principal component analysis. The argument tuneLength controls how many set of parameter values were evaluated and cross validation was applied to select the one with lowest (train) RMSE.
+
+```{r, echo = TRUE}
+set.seed(1)
+cv_model_pcr <- train(
+  Y ~ ., 
+  data = train, 
+  method = "pcr",
+  trControl = fitControl,
+  tuneLength = 100
+  )
+```
+
+Using cross-validation, 64 principal components were included into the final model. The variance importance rank according to PCR is shown in the graph.
+
+```{r, echo = TRUE}
+plot(cv_model_pcr$results$ncomp,
+     cv_model_pcr$results$RMSE, col = 'blue3',
+     xlab = 'Number of Principal Components',
+     ylab = 'RMSE',
+     lwd = 2, type = 'l',
+     main = 'Optimal PCR model:64 PCs by Cross-Validation')
+abline(v = 64, lwd = 2, lty = 2, col = 'lightblue3')
+
+pcrImp <- varImp(cv_model_pcr, scale = FALSE)
+plot(pcrImp, top = 20, main = 'PCR: Variable Importance') 
+```
+
+
+## Random Forest
+
+Random Forest is an improved version of bagging trees. During the splitting process, instead of choosing from all of the predictors, Random Forest limits the search to a random set of m of the p variables. In this way, the problem of tree correlation is minimized. The study chose Random Forest as one potential model since 1) Random Forest typically has outstanding prediction performance; 2) Random Forest could use Out-Of Bag (OOB) estimation to estimate the test error, so there is no need to sacrifice data for extra validation; 3) Random Forest could provide Variable Importance Measure, which is beneficial to the study's inference purpose.
+
+To achieve optimal performance, the study focused on tuning four hyperparameters of the Random Forest model, namely 1) "ntree:" number of trees, 2) "mtry:" the number of variables to randomly sample as candidates during each split, 3) "sampsize:" bootstrap sample size, and 4) "nodesize:" minimum number of observations within each leave. The study found that the error rate tends to be stable when the number of trees reaches 1000, so the value 1000 was chosen for the first hyperparameter. For the rest three hyperparameters, the study performed a grid search among potential candidate values. Note that the package "ranger" was used instead of the classic "randomForest" package, since "ranger" is over 6 times more computationally efficient than "randomForest" (Bradley, n.d.).
+
+```{r,eval = FALSE, include=FALSE}
+hyper_grid <- expand.grid(
+  mtry       = seq(10, 20, by = 2), 
+  node_size  = seq(3, 9, by = 2),
+  sample_size = c(.55, .632, .70, .80),
+)
+```
+
+Among these 96 possible hyperparameter combinations, the study concludes that the best alternative is when mtry=20, sampsize=0.8, and nodesize=3. The random forest model was therefore trained with these hyperparameters.   
+
+```{r, include=FALSE}
+tuned_randomforest_model <- ranger(
+  formula= Y ~ ., data = train, 
+  num.trees = 1000, mtry = 20,
+  min.node.size = 3, sample.fraction = .8,
+  importance = 'impurity')
+```
+
+
+## GAM
+
+General Additive Model (GAM) is a flexible model that accounts for each feature's idiosyncratic relationship with the response. Previously, we obtained 20 important variables from PCR model. 
+
+Thereby, we decided to delve into the scatterplots of some important features and the dependent variable. By using the powerfull tool `geom_smooth` in the `ggplot2` package, we tried different spline models (e.g. `bs()`, `ns()`) and adjusted the parameter `df` from 1 to 5.
+
+```{r}
+library(gridExtra)
+g1 <- ggplot(train,aes(Neighborhood, Y))+
+  geom_point(colour = 'grey50')
+
+g2 <- ggplot(train,aes(YearBuilt, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g3<-ggplot(train,aes(GarageArea, Y))+
+  geom_point( colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+  
+g4<-ggplot(train, aes(BsmtQual, Y))+
+  geom_point( colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,4), se = T, size = 1, colour = 'red')
+
+g5<-ggplot(train, aes(KitchenQual, Y))+
+  geom_point( colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~x, se = T, size = 1, colour = 'red')
+
+g6<-ggplot(train,aes(OverallQual, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,3), se = T, size = 1, colour = 'red')
+
+g7<-ggplot(train,aes(TotalBsmtSF, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,3), se = T, size = 1, colour = 'red')
+
+g8<-ggplot(train,aes(X1stFlrSF, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+  
+g9<-ggplot(train,aes(ExterQual, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g10<-ggplot(train,aes(YearRemodAdd, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,5), se = T, size = 1, colour = 'red')
+
+g11<-ggplot(train,aes(FullBath, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g12<-ggplot(train,aes(WoodDeckSF, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g13<-ggplot(train,aes(MSSubClass, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g14<-ggplot(train,aes(GarageType, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,3), se = T, size = 1, colour = 'red')
+
+g15<-ggplot(train,aes(Fireplaces, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~ns(x,2), se = T, size = 1, colour = 'red')
+
+g16<-ggplot(train,aes(HeatingQC, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~x, se = T, size = 1, colour = 'red')
+
+g17<-ggplot(train,aes(X2ndFlrSF, Y))+
+  geom_point(colour = 'grey50')+
+  geom_smooth(method="lm", formula=y~bs(x,6), se = T, size = 1, colour = 'red')
+
+grid.arrange(g2, g3, g4, g5, nrow = 2, ncol =2)
+grid.arrange(g6, g7, g8, g9, nrow = 2, ncol =2)
+grid.arrange(g10, g11, g12, g15, nrow = 2, ncol =2)
+grid.arrange(g16, g17,nrow = 2, ncol =2)
+```
+
+Notice that there might exist some interaction within two variables. After observing the interaction plots, we discovered two significant interaction effects. For the graph of MSSubClass and Neighborhood, the colorful lines vary in slope, which indicates that the house's neighborhood would affect the relationship between Sale Price and MSSubClass.
+
+```{r}
+with(train,{
+  interaction.plot(MSSubClass,Neighborhood,Y,
+                   lwd = 2, lty= 1, col=1:20, legend = F,
+                   main = 'Interaction between MSSubClass and Neignborhood')
+})
+```
+
+
+For the graph of HeatingQC and Fireplaces, the colorful lines also vary in slope, which indicates that the placement of the fire in a house would affect the relationship between Sale Price and HeatingQC.
+
+```{r}
+with(train,{
+  interaction.plot(HeatingQC,Fireplaces,Y,
+                   lwd = 2, lty= 1, col=1:20, legend = F,
+                   main = 'Interaction between Fireplaces and HeatingQC')
+})
+```
+
+Eventually, we aggregated the splines as follows.
+
+```{r}
+library(gam)
+gam.1 <- gam(Y~ Neighborhood*MSSubClass+ Fireplaces*HeatingQC+
+               ns(YearBuilt,3)+bs(GarageArea,4)+bs(GarageArea,4)+
+               bs(BsmtQual,4)+KitchenQual+bs(OverallQual,3)+
+               bs(TotalBsmtSF,3)+ns(X1stFlrSF,3)+ns(ExterQual,3)+
+               bs(YearRemodAdd,6)+bs(OpenPorchSF,4)+
+               ns(FullBath,3)+ ns(WoodDeckSF,3)+GarageType+ bs(X2ndFlrSF,5), 
+             data = train)
+```
+
+
+## SVM
+
+Support vector machine is a powerful supervised learning model applied in statistical problems. Based on the seperating hyperpline, it could serve as a classfier efficiently classify data into various categories. However, SVM could also be implemented in regression problems. Through maximizing the distance between support vectors and regression curve, it could "find the closest match between the data points and the actual function that is represented by them".
+
+As the only model based on distance between data points in the foregoing toolbox, SVM regression was taken into account in the model building for this project.
+
+The training data was fed into three SVM models with different kernels obtained from e1071 library. For each of them, parameters were tuned via cross validation. After achieving the best performance of each model, cross-validation method was again applied to estimate their accuracy. 
+
+```{r,echo = TRUE}
+# tc <- tune.control(cross = 10)
+# obj_1 = tune(svm, Y~., kernal = "linear", data = train_svm, 
+# ranges = list(gamma = 2^(-2:2), cost = 2^(2:4)), tunecontrol = tc)
+# obj_2 = tune(svm, Y~., kernal = "polynomial", data = train_svm, 
+# ranges = list(gamma = 2^(-2:2), cost = 2^(2:4)), tunecontrol = tc)
+# obj_3 = tune(svm, Y~., kernal = "radial", data = train_svm, 
+# ranges = list(gamma = 2^(-2:2), cost = 2^(2:4)), tunecontrol = tc)
+```
+
+The result turned out that the model with linear kernel was reported the lowest RMSE, which was roughly 0.10.
+
+# Result
+
+## Cross-Validation
+
+Here are the CV errors for six training models.
+
+![CV RMSLE](~/Documents/GitHub/ERG-Project/image/CV_RMSLE.png){width=80%}
+
+As the table shows, Random Forest model performs the best. However, we did not put all bet on it. Instead, we decided to ensemble all the models, so as to 1) obtain more accurate and robust prediction, 2) nicely trade off between interpretability and flexibility.
+
+## Ensemble Methodology
+
+- 1. Equally assign a weight to each model. (`coefficient <- rep(1/6,6)`)
+
+- 2. Divide the training set into 10 parts at random. (`set.seed(10)`)
+
+- 3. Acquire the local optimal coefficients for six models in each part of the dataset. (`optim()$par` was used. It is optimization function based on Nelder-Mead, quasi-Newtona adn conjugaet-graident algorithms. `$par` gives the )
+
+- 4. Get the average coefficient as the ultimate weight for individual model.
+
+![](~/Documents/GitHub/ERG-Project/image/Ensemble.png){width=80%}
+
+## Work on Test Dataset
+
+Before predicting the house price in the test data, we need to preprocess the features based on the modification of training dataset. That is, feature engineering and NA-filling. During the prediction process on test data, the SVM code was removed due to technical issue (intrinsic problem in `e1071` packages). In the end, only the remaining five models were used to predict the test data. After transforming the predicted house prices (`expm1()`), the score (RMSLE) of the prediction turned out to be 0.12340.
+
+
+# Discussion
+
+This study aims at two parts, which serve at the guideline for all the data process.
+
+The first purpose of the study is to achieve a relatively high accuracy of the model. In doing so, ensemble method was applied as it could balance the strength and shortcomings of individual models. As the result shows, the model after ensemble has a overwhelming advantage in prediction power.
+
+The second purpose of the study is to infer what are the most important influential factors to housing prices. To this end, three models of the final ensemble, namely Forward Stepwise, PCR, and Random Forest, could provide valuable information. The following three graphs are the Variable Importance Measure generated by Forward Stepwise, PCR, and Random Forest, respectively.  
+
+![](~/Documents/GitHub/ERG-Project/image/Variable_Importance_Measure_Random_Forest.png)
+
+![](~/Documents/Github/ERG-Project/image/Variable_Importance_Measure_PCR.png)
+
+![](~/Documents/Github/ERG-Project/image/Variable_Importance_Measure_Forward_Stepwise.png)
+
+From these graphs, the research reached several insights.
+
+1) PCR attached greatest importance to the predictor "Neighborhood." Similarly, Forward Stepwise also ranked several neighborhood-related factors among top 25. These models' emphasis on the importance of neighborhood corresponds to people's common notion that location is vital to a house's value.  
+
+2) All three models emphasized the significance of the predictor "YearBuilt." Forward Stepwise ranked it as the fifth most important feature, PCR ranked it as the second, and Random Forest ranked it as the first. This reveals that the time of construction could greatly influence housing prices.
+
+3) Besides "Neighborhood" and "YearBuilt," some other predictors also play significant roles. For instance, overall quality, basement area, and garage area all ranked fairly high on the Variable Importance Measure Plot. What's more, perhaps a bit surprisingly, Kitchen Quality appears to be one of the most important predictors, suggesting that real estate market participants should pay more attention to this index.  
+
+
+# Conclusion
+
+Conclusively, the process of predicting the Ames Housing Price can be summarized into 4 categories, exploratory data analysis, preprocessing, modeling and the result. In EDA process, the problems of missing value, scaling issue, redundant features, collinearity and skewed response variable were detected. During preprocessing, Missing values were translated or imputed using mode or KNN method according to their real meanings and characteristics. Scaling was carried out using z-score standardization since distance-based estimators often assume approximately standardized data. 8 features with high collinearity were removed with the help of Spearman index and 19 redundant features with small variances were deleted. The response SalePrice was fixed using logarithmic transformation.
+
+The regression models were classified into 3 types, OLS models, tree-based models and distance-based models. Within OLS range, forward selection regression, lasso regression, principal component regression and GAM were selected to fit and predict the housing price. Support vector regression and random forest were also included since they separately represented distance-based model and tree-based model. The above 6 models were fitted and compared using cross-validation errors. Random forest outstood with the lowest cross-validation RMSLE. However, to obtain more accurate and robust prediction and also for the sake of the trade off between interpretability and flexibility, ensemble methodology was at last considered.
+
+Before predicting the house price in the test set, the test data were preprocessed based on the modification of training data. Since the SVM model was removed due to package problem, the remaining 5 models were used to predict the test data. The score (RMSLE) of the prediction turned out to be 0.12340.
+
+
+# References
+
+Bradley, B. (n.d.). Random forests. UC Business Analytics R Programming Guide. 
+https://uc-r.github.io/random_forests  
+
+Cock, D. (2011). Ames, Iowa: Alternative to the Boston Housing Data as an end of semester regression project. Journal of Statistics Education, 19(3). 
+https://doi.org/10.1080/10691898.2011.11889627     
+
+Hyun, K. (2013). The prevention and handling of the missing data. Korean Journal of Anesthesiology, 64(5), 402-406. doi: 10.4097/kjae.2013.64.5.402  
+
+Kaggle. (2020). House prices - Advanced regression techniques.
+https://www.kaggle.com/c/house-prices-advanced-regression-techniques/overview 
+
+Morgan Stanley Capital International. (2020). Market size report on global real estate.
+https://www.msci.com/real-estate/market-size-report 
+
+P. Jonsson and C. Wohlin, "An evaluation of k-nearest neighbour imputation using Likert data," 10th International Symposium on Software Metrics, 2004. Proceedings., Chicago, Illinois, USA, 2004, pp. 108-118, doi: 10.1109/METRIC.2004.1357895.
+
+Cramer's V. (2020, December 27). In Wikipedia.
+https://en.wikipedia.org/wiki/Cram%C3%A9r%27s_V
+
+
+
+
+
+
+
+
