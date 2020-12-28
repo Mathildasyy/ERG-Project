@@ -51,7 +51,6 @@ text(34, 500, '32')
 ```{r}
 reg.index <- names(sort(colSums(ifelse(reg.summary$outmat[1:32,] == '*',1,0)), decreasing = T)[1:32])
 names(reg.summary$outmat[32,reg.index]) # 以下特征依次显著
-
 ```
 
 ```{r}
@@ -99,17 +98,13 @@ plot(pcrImp, top = 20, main = 'PCR: Variable Importance')
 ```{r}
 # 3. GAM
 library(gam)
-gam.1 <- gam(Y~ Neighborhood*MSSubClass+
-               ns(YearBuilt,3)+bs(GarageArea,4)+bs(GarageArea,4)+
-               bs(BsmtQual,4)+KitchenQual+bs(OverallQual,3)+
-               bs(TotalBsmtSF,3)+ns(X1stFlrSF,3)+ns(ExterQual,3)+
-               bs(YearRemodAdd,6)+bs(OpenPorchSF,4)+
+gam.1 <- gam(Y~ Neighborhood*MSSubClass+ns(YearBuilt,3)+bs(GarageArea,4)+bs(GarageArea,4)+
+               bs(BsmtQual,4)+KitchenQual+bs(OverallQual,3)+bs(TotalBsmtSF,3)+
+               ns(X1stFlrSF,3)+ns(ExterQual,3)+bs(YearRemodAdd,6)+bs(OpenPorchSF,4)+
                ns(FullBath,3)+ ns(WoodDeckSF,3)+GarageType+
                Fireplaces*HeatingQC+bs(X2ndFlrSF,5), 
              data = train)
-# training RMSE: 0.1180877
-
-sqrt(mean((train$Y - predict.Gam(gam.1))^2)) 
+sqrt(mean((train$Y - predict.Gam(gam.1))^2)) # training RMSE: 0.1180877
 ```
 
 ```{r}
@@ -258,6 +253,7 @@ fit = svm(Y ~., data = train, method = "svmLinear", svr_eps = 0.1, cost = 1, eps
 pred_svr_train = read.csv('~/Documents/Github/ERG-Project/data/svmresults.csv')
 # pred_svr_test = pred_svr_train = read.csv('~/Documents/Github/ERG-Project/data/svmresults.csv')
 sqrt(mean((train$Y-pred_svr_train$x)^2)) # 0.1008077
+
 ```
 
 
@@ -276,7 +272,7 @@ Prediction <- function(data){
 prediction <- Prediction(train)
 #prediction <- cbind(Prediction(train), pred_svr_train)
 
-## RMSLE
+## Training RMSLE
 sqrt(mean((train$Y - prediction[,1])^2)) # fwd: 0.1145312; 0.1180877
 sqrt(mean((train$Y - prediction[,2])^2)) # bstlm: 0.1311058; / GAM: 0.1180877
 sqrt(mean((train$Y - prediction[,3])^2)) # L1: 0.1176129
@@ -289,6 +285,7 @@ sqrt(mean((train$Y - prediction[,5])^2)) # PCR 0.1194666
 Train = train
 coef.train <- data.frame()
 coefficient <- rep(1/5,5)
+#coefficient <- c(1,1,1,1,1,1)
 for (i in 0:9){
   set.seed(10)
   index.subtract <- sample(1:nrow(Train),1/(10-i)*nrow(Train))
