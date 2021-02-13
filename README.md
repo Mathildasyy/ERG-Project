@@ -1,5 +1,13 @@
 # ERG2050_Project_PredictHousePrices
 
+
+
+Th original dataset comes from the classical Kaggle competition: 
+
+**House Prices - Advanced Regression Techniques** 
+
+(https://www.kaggle.com/c/house-prices-advanced-regression-techniques)
+
 ## Background
 
 House prices can be affected by many factors from type of utilities available, style of dwelling to rating of basement finished area and fireplace quality. Our goal is to predict the likely house prices according to some potential influencing factors.
@@ -13,3 +21,10 @@ First, we will analyze 'SalePrice' and its relationship with numerical and categ
 Next, we are going to fix potential problems, for instance, heteroskedasticity, multicollinearity, missing data and outliers.
 
 After converting categorical variables into dummy ones, we will train on different regression methods (linear regression, SVM) and integrate them into a blended one. 
+
+## Result
+
+ The score (RMSLE) of the prediction turned out to be 0.12340. 
+
+Please find the details in the  [Project-report.pdf](Project-report.pdf).
+
